@@ -91,6 +91,10 @@ O Photoshop traz 23 plugins UXP próprios em `Contents/Required/UXP/` (461 MB de
 | Scripts que já vêm no app | `Presets/Scripts/`: Export Layers To Files, ArtBoards To Files/PDF, Layer Comps To Files, Image Processor, Fit Image | Exportar carrossel por prancheta de graça. |
 | Neural Filters (pele, harmonizar, colorir, super zoom) | Só via UXP batchPlay | Precisa do plugin UXP. |
 
+## Teste automático das ferramentas nativas
+
+`scripts/sondar/testar_ferramentas.py` monta um documento de teste e roda as 130 ferramentas sem crédito, voltando pelo histórico depois de cada uma. Rodada de 16/10/2026: **104 OK**. As que falharam foram por parâmetro mínimo do teste, não por defeito: os `layer_set_*_params` exigem ao menos um valor DIFERENTE do atual ("No ... parameters were changed"), `layer_effect_set_stroke` usa `effect_index` 0, `text_layer_set_frame` precisa de `point_frame` ou `area_frame`, `document_edit_artboard` precisa de algo para mudar, apagar/remover seleção só em camada de pixel ou smart object. `document_content_aware_expand` falhou ("ExecuteContentAwareFill failed") e travou o Photoshop quando o usuário abriu outro PSD no meio.
+
 ## O que NÃO funciona (confirmado)
 
 - **`app.runMenuItem(id)` chamado via AppleScript:** sempre "item de menu não está disponível", mesmo com o Photoshop na frente e documento limpo. Contorno: usar o evento do Action Manager equivalente (quase todo item de menu tem um) ou `app_menu` pela tela.
@@ -99,6 +103,10 @@ O Photoshop traz 23 plugins UXP próprios em `Contents/Required/UXP/` (461 MB de
 - **Reflexão das coleções** (`Documents`, `ArtLayers`, `Layers`, `PathItems`, `LayerComps`) dá erro; as classes de item funcionam.
 
 ## Armadilhas
+
+- **Ferramentas nativas que ignoram o `doc_id` e agem no documento DA FRENTE** (visto em 16/10/2026: `layer_cleanup_rename_layers` e `document_content_aware_expand` rodaram no PSD que o usuário abriu no meio do teste, e o Photoshop travou). Nunca rodar lote com o usuário usando o Photoshop; conferir `front_doc_id` antes.
+- **Alerta modal** ("Nenhum pixel selecionado", "área selecionada está vazia") aparece mesmo com `DialogModes.NO` e trava tudo: a `ps_lib` fecha sozinha via System Events (`PS.destravar()`) e guarda em `PS.ALERTAS`.
+- **Resposta grande (>64 KB) num PIPE trava o osascript**: a `ps_lib` grava a saída em arquivo.
 
 - **Unidades:** começar todo script com `app.preferences.rulerUnits = Units.PIXELS` e `app.displayDialogs = DialogModes.NO`.
 - **Arquivo de saída do ExtendScript** usa quebra de linha CR no Mac: usar `f.lineFeed = "Unix"`.

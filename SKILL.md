@@ -31,8 +31,17 @@ PS.js("app.activeDocument.activeLayer.name")               # 2) ExtendScript (DO
 3. **Menu pela tela** só se não houver outro jeito, com o Photoshop na frente.
 4. **Aprender um passo novo:** `PS.gravar(True)`, o usuário faz a ação uma vez no Photoshop, ler `$TMPDIR/oyoshi_gravacao.jsonl`, `PS.gravar(False)`.
 
+## Marca do cliente (antes de desenhar)
+
+- Pasta da marca: `<pasta_saida>/<Marca>/` (no Mac do dono: `~/Documents/CLAUDE BRAIN/<Marca>/`). Ler `design/design-<marca>.md` e `marca/identidade.md`. Se não existir, pedir PSDs ou referências.
+- **PSD de referência:** dissecar sem abrir o Photoshop (`scripts/dissecar_psd.py`, método em `docs/metodo_arvore.md`), copiar o PSD para `<Marca>/design/referencias/psd/` e escrever/atualizar `design-<marca>.md`.
+- **Árvore de camadas:** sempre a árvore padrão do `docs/metodo_arvore.md` (grupos por função, smart objects, texto em escada, pessoa na frente do título, acabamento em pilha, grão).
+
 ## Regras
 
+- **Imagens e elementos por IA** (Higgsfield, Magnific, Artlist ou qualquer conector de IA): pode gerar, **mas SEMPRE perguntar antes** se o usuário quer gerar aquela imagem/elemento por IA, com o que seria gerado e o custo.
+- **Fonte faltando:** procurar e baixar (Adobe Fonts > Google Fonts > fundição, detalhes no `docs/metodo_arvore.md`); fonte paga nunca de site pirata.
+- **Nunca rodar teste ou lote enquanto o usuário usa o Photoshop:** algumas ferramentas nativas (renomear camadas, preenchimento sensível ao conteúdo) agem no documento DA FRENTE mesmo recebendo outro `doc_id`. Antes de mexer, conferir com `application_list_open_documents` que o documento certo está na frente e avisar.
 - **Nada que gaste crédito generativo da Adobe sem o usuário autorizar na hora:** ferramentas `gen_tech_*`, `syntheticFill` (Generative Fill/Expand), Generative Upscale. Selecionar assunto, remover fundo e preenchimento sensível ao conteúdo são locais e liberados.
 - **Tudo editável:** texto como camada de texto (fonte pelo PostScript name, conferida em `app.fonts`), foto como smart object, cor por camada de ajuste ou estilo. Nunca achatar o PSD entregue.
 - **Conferir com os olhos:** exportar PNG (`saveAs` cópia) e abrir com Read antes de dizer que está pronto.

@@ -5,3 +5,4 @@ __pycache__/
 # gerados na máquina de cada um por scripts/sondar/catalogar.sh
 # (têm dados da máquina, como número de série, ou conteúdo da Adobe)
 docs/catalogo/local/
+.venv/
