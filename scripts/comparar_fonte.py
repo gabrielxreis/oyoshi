@@ -160,6 +160,44 @@ def peso(ref, cand, H=96):
     return min(a, b) / max(a, b, 1e-6)
 
 
+def intensidade(crop, cores, tol):
+    """Mapa 0..1 de 'quanto é tinta' por pixel (antisserrilhado preservado): 1 - distância à cor do texto / tol."""
+    px = np.asarray(crop, dtype=np.float32); d = np.full(px.shape[:2], 1e9, np.float32)
+    for c in cores:
+        al = np.array([int(c[i:i + 2], 16) for i in (1, 3, 5)], np.float32); d = np.minimum(d, np.sqrt(((px - al) ** 2).sum(2)))
+    return np.clip(1 - d / (tol * 2.2), 0, 1)
+
+
+def render_fino(caminho, idx, texto, alvo):
+    """Renderiza em escala de cinza no tamanho do alvo (altura da caixa de tinta) com o espaçamento ajustado à largura."""
+    H, W = alvo.shape
+    try:
+        fnt0 = ImageFont.truetype(caminho, 100, index=idx); bx = fnt0.getbbox(texto)
+        if bx[3] - bx[1] <= 0: return None
+        tam = 100 * H / (bx[3] - bx[1]); fnt = ImageFont.truetype(caminho, max(4, int(round(tam))), index=idx)
+        larg = [fnt.getlength(ch) for ch in texto]; bx = fnt.getbbox(texto); natural = bx[2] - bx[0]
+        extra = (W - natural) / max(1, len(texto) - 1)
+        im = Image.new("L", (int(W + H * 4), int(H * 3)), 0); d = ImageDraw.Draw(im); x = H
+        for ch, w in zip(texto, larg):
+            d.text((x, H), ch, font=fnt, fill=255); x += w + extra
+        a = np.asarray(im, np.float32) / 255; ys, xs = np.where(a > 0.5)
+        if len(xs) == 0: return None
+        a = a[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+        return np.asarray(Image.fromarray((a * 255).astype(np.uint8)).resize((W, H), Image.BILINEAR), np.float32) / 255
+    except Exception:
+        return None
+
+
+def corr_desloc(a, b, raio=2):
+    """Maior correlação normalizada entre a e b com deslocamento de até `raio` px (alinhamento sub-caixa)."""
+    melhor = -1
+    for dy in range(-raio, raio + 1):
+        for dx in range(-raio, raio + 1):
+            bb = np.roll(np.roll(b, dy, 0), dx, 1); x = a - a.mean(); y = bb - bb.mean()
+            c = float((x * y).sum() / max(1e-6, np.sqrt((x * x).sum() * (y * y).sum()))); melhor = max(melhor, c)
+    return melhor
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("img"); ap.add_argument("x1", type=int); ap.add_argument("y1", type=int)
@@ -167,6 +205,7 @@ def main():
     ap.add_argument("--filtro", default="")
     ap.add_argument("--cor", default="", help="cor do texto na referência (#RRGGBB): pega só os pixels perto dessa cor (use quando há foto/objeto atrás ou na frente)")
     ap.add_argument("--tol", type=int, default=70); ap.add_argument("--top", type=int, default=12)
+    ap.add_argument("--sem-fino", action="store_true", help="pula a 2ª etapa (render no tamanho real + correlação)")
     a = ap.parse_args()
     crop = Image.open(a.img).convert("RGB").crop((a.x1, a.y1, a.x2, a.y2))
     if a.cor:
@@ -180,7 +219,7 @@ def main():
     fontes = indice()
     termos = [t.strip().lower() for t in a.filtro.split(",") if t.strip()]
     res = []
-    precisa = set(a.texto) - {" ", "\n"}
+    precisa = {c for c in a.texto if c.isprintable() and c not in " \n"}   # caracteres de controle (\x03 quebra) não contam
     for ps, (f, i, cob) in fontes.items():
         if termos and not any(t in ps.lower() for t in termos):
             continue
@@ -198,6 +237,19 @@ def main():
         if n > 0:
             res.append((n, larg, ps, f, i))
     res.sort(reverse=True)
+    # 2ª etapa (fina): as 15 melhores renderizadas no tamanho REAL da referência, em cinza, comparadas por correlação
+    if a.cor and len(res) > 1 and not a.sem_fino:
+        crop_rgb = Image.open(a.img).convert("RGB").crop((a.x1, a.y1, a.x2, a.y2))
+        it = intensidade(crop_rgb, [c.strip() for c in a.cor.split(",")], a.tol)
+        ys, xs = np.where(it > 0.5)
+        if len(xs) > 20:
+            it = it[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+            novos = []
+            for n, larg, ps, f, i in res[:15]:
+                r = render_fino(f, i, a.texto, it)
+                fino = corr_desloc(it, r) if r is not None else 0
+                novos.append((fino * 0.7 + n * 0.3, larg, ps, f, i))   # (termo de tinta testado: piorou 59% -> 52%)
+            res = sorted(novos, reverse=True) + res[15:]
     top = res[:a.top]
     for n, larg, ps, f, i in top:
         print(f"{n:.3f}  largura {larg:.2f}  {ps}")
