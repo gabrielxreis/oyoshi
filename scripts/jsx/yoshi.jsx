@@ -272,7 +272,9 @@ var Y = (function () {
   };
 
   // ---------- estilos de camada ----------
-  // fx: {sombra:{cor,op,dist,desfoque,angulo}, traco:{px,cor,posicao:"outside|inside|center"}, cor:{cor,op}, degrade:{paradas,angulo}, brilho:{cor,op,tam}}
+  // fx: {sombra:{cor,op,dist,desfoque,angulo}, traco:{px,cor,posicao:"outside|inside|center"}, cor:{cor,op}, brilho:{cor,op,tam},
+  //      brilhoInterno:{cor,op,tam,contrair,centro,modo}, sombraInterna:{cor,op,dist,desfoque,angulo}, chanfro:{estilo,tecnica,prof,tam,suave,angulo,altitude,luz,sombra},
+  //      degrade:{paradas:[[hex,loc]],angulo,tipo:"linear|radial",escala,modo,op}, cetim:{cor,op,angulo,dist,desfoque,inverter,modo}}
   Y.efeitos = function (l, fx) {
     D.activeLayer = l;
     var a = new ActionDescriptor(), r = new ActionReference(); r.putProperty(s("property"), s("layerEffects")); r.putEnumerated(s("layer"), s("ordinal"), s("targetEnum")); a.putReference(s("null"), r);
@@ -291,6 +293,29 @@ var Y = (function () {
     if (fx.brilho) { var gl = new ActionDescriptor(); gl.putBoolean(s("enabled"), true); gl.putEnumerated(s("mode"), s("blendMode"), s("screen"));
       gl.putObject(s("color"), s("RGBColor"), rgbDesc(fx.brilho.cor)); gl.putUnitDouble(s("opacity"), s("percentUnit"), fx.brilho.op || 60);
       gl.putUnitDouble(s("blur"), s("pixelsUnit"), fx.brilho.tam || 40); gl.putUnitDouble(s("chokeMatte"), s("percentUnit"), 0); e.putObject(s("outerGlow"), s("outerGlow"), gl); }
+    // novos (16/10, chaves tiradas do dicionário de terminologia do binário)
+    if (fx.brilhoInterno) { var ig = fx.brilhoInterno, di = new ActionDescriptor(); di.putBoolean(s("enabled"), true); di.putEnumerated(s("mode"), s("blendMode"), s(ig.modo || "screen"));
+      di.putObject(s("color"), s("RGBColor"), rgbDesc(ig.cor)); di.putUnitDouble(s("opacity"), s("percentUnit"), ig.op || 75); di.putUnitDouble(s("chokeMatte"), s("pixelsUnit"), ig.contrair || 0);
+      di.putUnitDouble(s("blur"), s("pixelsUnit"), ig.tam || 10); di.putEnumerated(s("innerGlowSource"), s("innerGlowSourceType"), s(ig.centro ? "centerGlow" : "edgeGlow")); e.putObject(s("innerGlow"), s("innerGlow"), di); }
+    if (fx.sombraInterna) { var is_ = fx.sombraInterna, ds = new ActionDescriptor(); ds.putBoolean(s("enabled"), true); ds.putEnumerated(s("mode"), s("blendMode"), s(is_.modo || "multiply"));
+      ds.putObject(s("color"), s("RGBColor"), rgbDesc(is_.cor || "#000000")); ds.putUnitDouble(s("opacity"), s("percentUnit"), is_.op || 50); ds.putBoolean(s("useGlobalAngle"), false);
+      ds.putUnitDouble(s("localLightingAngle"), s("angleUnit"), is_.angulo === undefined ? 90 : is_.angulo); ds.putUnitDouble(s("distance"), s("pixelsUnit"), is_.dist || 5);
+      ds.putUnitDouble(s("chokeMatte"), s("pixelsUnit"), 0); ds.putUnitDouble(s("blur"), s("pixelsUnit"), is_.desfoque || 10); e.putObject(s("innerShadow"), s("innerShadow"), ds); }
+    if (fx.chanfro) { var bv = fx.chanfro, db = new ActionDescriptor(); db.putBoolean(s("enabled"), true);
+      db.putEnumerated(s("bevelStyle"), s("bevelEmbossStyle"), s(bv.estilo || "innerBevel")); db.putEnumerated(s("bevelTechnique"), s("bevelTechnique"), s(bv.tecnica || "softMatte"));
+      db.putUnitDouble(s("strengthRatio"), s("percentUnit"), bv.prof || 100); db.putEnumerated(s("bevelDirection"), s("bevelEmbossStampStyle"), s("stampIn"));
+      db.putUnitDouble(s("blur"), s("pixelsUnit"), bv.tam || 8); db.putUnitDouble(s("softness"), s("pixelsUnit"), bv.suave || 0);
+      db.putBoolean(s("useGlobalAngle"), false); db.putUnitDouble(s("localLightingAngle"), s("angleUnit"), bv.angulo || 120); db.putUnitDouble(s("localLightingAltitude"), s("angleUnit"), bv.altitude || 30);
+      db.putEnumerated(s("highlightMode"), s("blendMode"), s("screen")); db.putObject(s("highlightColor"), s("RGBColor"), rgbDesc(bv.luz || "#FFFFFF")); db.putUnitDouble(s("highlightOpacity"), s("percentUnit"), bv.opLuz || 75);
+      db.putEnumerated(s("shadowMode"), s("blendMode"), s("multiply")); db.putObject(s("shadowColor"), s("RGBColor"), rgbDesc(bv.sombra || "#000000")); db.putUnitDouble(s("shadowOpacity"), s("percentUnit"), bv.opSombra || 75);
+      db.putBoolean(s("antialiasGloss"), true); e.putObject(s("bevelEmboss"), s("bevelEmboss"), db); }
+    if (fx.degrade) { var gf = fx.degrade, dg = new ActionDescriptor(); dg.putBoolean(s("enabled"), true); dg.putEnumerated(s("mode"), s("blendMode"), s(gf.modo || "normal"));
+      dg.putUnitDouble(s("opacity"), s("percentUnit"), gf.op || 100); dg.putObject(s("gradient"), s("gradientClassEvent"), gradDesc(gf.paradas));
+      dg.putUnitDouble(s("angle"), s("angleUnit"), gf.angulo === undefined ? 90 : gf.angulo); dg.putEnumerated(s("type"), s("gradientType"), s(gf.tipo || "linear"));
+      dg.putBoolean(s("reverse"), false); dg.putBoolean(s("align"), true); dg.putUnitDouble(s("scale"), s("percentUnit"), gf.escala || 100); e.putObject(s("gradientFill"), s("gradientFill"), dg); }
+    if (fx.cetim) { var ct = fx.cetim, dc = new ActionDescriptor(); dc.putBoolean(s("enabled"), true); dc.putEnumerated(s("mode"), s("blendMode"), s(ct.modo || "multiply"));
+      dc.putObject(s("color"), s("RGBColor"), rgbDesc(ct.cor || "#000000")); dc.putUnitDouble(s("opacity"), s("percentUnit"), ct.op || 50); dc.putUnitDouble(s("localLightingAngle"), s("angleUnit"), ct.angulo || 19);
+      dc.putUnitDouble(s("distance"), s("pixelsUnit"), ct.dist || 11); dc.putUnitDouble(s("blur"), s("pixelsUnit"), ct.desfoque || 14); dc.putBoolean(s("invert"), !!ct.inverter); e.putObject(s("chromeFX"), s("chromeFX"), dc); }
     a.putObject(s("to"), s("layerEffects"), e); executeAction(s("set"), a, DialogModes.NO); return l;
   };
 
@@ -317,6 +342,14 @@ var Y = (function () {
     var l = D.activeLayer; nomeia(l, nome || "CURVAS"); if (op !== undefined) l.opacity = op; return entra(l, g);
   };
   // Mapa de degradê (unifica a cor da peça inteira). paradas: [["#0B0710",0],["#C9A04A",100]] (sombras -> luzes)
+  function gradDesc(paradas) {   // paradas: [["#hex", local 0-100], ...]
+    var gr = new ActionDescriptor(); gr.putString(s("name"), "yoshi"); gr.putEnumerated(s("gradientForm"), s("gradientForm"), s("customStops")); gr.putDouble(s("interfaceIconFrameDimmed"), 4096);
+    var cl = new ActionList(), tl = new ActionList();
+    for (var i = 0; i < paradas.length; i++) { var p = paradas[i], loc = Math.round(p[1] / 100 * 4096);
+      var c = new ActionDescriptor(); c.putObject(s("color"), s("RGBColor"), rgbDesc(p[0])); c.putEnumerated(s("type"), s("colorStopType"), s("userStop")); c.putInteger(s("location"), loc); c.putInteger(s("midpoint"), 50); cl.putObject(s("colorStop"), c);
+      var tt = new ActionDescriptor(); tt.putUnitDouble(s("opacity"), s("percentUnit"), 100); tt.putInteger(s("location"), loc); tt.putInteger(s("midpoint"), 50); tl.putObject(s("transferSpec"), tt); }
+    gr.putList(s("colors"), cl); gr.putList(s("transparency"), tl); return gr;
+  }
   Y.mapaDegrade = function (paradas, nome, g, modo, op) {
     var a = new ActionDescriptor(), r = new ActionReference(); r.putClass(s("adjustmentLayer")); a.putReference(s("null"), r);
     var u = new ActionDescriptor(), gm = new ActionDescriptor(), gr = new ActionDescriptor();
@@ -585,6 +618,70 @@ var Y = (function () {
   };
   // Texto em arco (deformação de texto, continua editável). valor -100..100.
   Y.arco = function (l, valor, estilo) { l.textItem.warpStyle = estilo || WarpStyle.ARC; l.textItem.warpBend = valor; return l; };
+  // ---------- técnicas de design (lote 2, 16/10/2026) ----------
+  function rasterizar(l) { D.activeLayer = l; var a = new ActionDescriptor(); a.putReference(s("null"), refAtiva()); executeAction(s("rasterizeLayer"), a, DialogModes.NO); return D.activeLayer; }
+  function copiaSolida(l, cor) {   // cópia da silhueta em cor chapada, rasterizada (base para sombras e extrusão)
+    var c = l.duplicate(); c = rasterizar(c); D.activeLayer = c; c.fillOpacity = 100;
+    var a = new ActionDescriptor(); a.putReference(s("null"), refAtiva()); executeAction(s("rasterizeLayer"), a, DialogModes.NO);
+    c.blendMode = BlendMode.NORMAL; c.opacity = 100; D.activeLayer = c;
+    // trava transparência e pinta
+    D.selection.selectAll(); D.selection.fill(rgb(cor), ColorBlendMode.NORMAL, 100, true); D.selection.deselect();   // 4º arg = preservar transparência
+    return c;
+  }
+  // Repete uma camada deslocando 1 px por passo até `comp` (dobrando: log2 passos). ang em graus (0 = direita, 90 = baixo).
+  function arrastar(c, ang, comp) {
+    var r = ang * Math.PI / 180, dx = Math.cos(r), dy = Math.sin(r), feito = 1;
+    while (feito < comp) { var passo = Math.min(feito, comp - feito); var d = c.duplicate(); d.translate(dx * passo, dy * passo); D.activeLayer = d; c = d.merge(); feito += passo; }
+    return c;
+  }
+  // Sombra longa (flat design): silhueta arrastada na diagonal, abaixo da camada.
+  Y.sombraLonga = function (l, ang, comp, cor, op) {
+    var c = copiaSolida(l, cor || "#000000"); c = arrastar(c, ang === undefined ? 45 : ang, comp || 1500);   // padrão passa da borda (sombra longa não termina dentro da peça)
+    c.move(l, ElementPlacement.PLACEAFTER); c.name = "SOMBRA LONGA"; c.opacity = op === undefined ? 35 : op; return c;
+  };
+  // Extrusão 3D de texto/forma: cópias empilhadas mais escuras atrás + chanfro leve na frente.
+  Y.extrusao = function (l, prof, cor, ang) {
+    var c = copiaSolida(l, cor || "#333333"); c = arrastar(c, ang === undefined ? 60 : ang, prof || 24);
+    c.move(l, ElementPlacement.PLACEAFTER); c.name = "EXTRUSAO 3D";
+    Y.efeitos(c, { sombra: { cor: "#000000", op: 45, dist: 10, desfoque: 25, angulo: -(ang === undefined ? 60 : ang) + 180 } });
+    Y.efeitos(l, { chanfro: { tam: 3, prof: 120, altitude: 40, opLuz: 45, opSombra: 30 } }); return c;
+  };
+  // Neon: núcleo claro + brilho interno da cor + brilho externo forte + halo desfocado atrás.
+  Y.neon = function (l, cor) {
+    if (l.kind === LayerKind.TEXT) l.textItem.color = rgb("#FFFFFF");
+    Y.efeitos(l, { brilhoInterno: { cor: cor, op: 90, tam: 6 }, brilho: { cor: cor, op: 95, tam: 28 } });
+    var h = copiaSolida(l, cor); h.move(l, ElementPlacement.PLACEAFTER); h.applyGaussianBlur(45); h.blendMode = BlendMode.SCREEN; h.opacity = 70; h.name = "HALO NEON"; return l;
+  };
+  // Cromado: degradê metálico + chanfro brilhante + cetim + traço fino escuro.
+  Y.cromado = function (l) {
+    return Y.efeitos(l, { degrade: { paradas: [["#2B2B2B", 0], ["#FFFFFF", 45], ["#5A5A5A", 52], ["#E6E6E6", 75], ["#8C8C8C", 100]], angulo: 90 },
+      chanfro: { tecnica: "preciseMatte", tam: 6, prof: 300, altitude: 55, opLuz: 90, opSombra: 60 }, cetim: { cor: "#000000", op: 35, dist: 12, desfoque: 10 },
+      traco: { px: 2, cor: "#1A1A1A", posicao: "outside" } });
+  };
+  // Texto vazado: a foto aparece só dentro das letras (máscara de recorte).
+  Y.textoVazado = function (texto, foto) { foto.move(texto, ElementPlacement.PLACEBEFORE); Y.recorte(foto); return foto; };
+  // Retícula (halftone de jornal/pôster) como filtro inteligente. raio 4-20 px.
+  Y.reticula = function (l, raio) {
+    if (l.kind !== LayerKind.SMARTOBJECT) l = Y.inteligente(l); D.activeLayer = l;
+    var a = new ActionDescriptor(); a.putInteger(charIDToTypeID("Rds "), raio || 8);
+    a.putInteger(charIDToTypeID("Ang1"), 108); a.putInteger(charIDToTypeID("Ang2"), 162); a.putInteger(charIDToTypeID("Ang3"), 90); a.putInteger(charIDToTypeID("Ang4"), 45);
+    executeAction(charIDToTypeID("ClrH"), a, DialogModes.NO); return l;
+  };
+  // Sombra de contato: elipse escura desfocada sob a base do objeto (pé, produto em mesa).
+  Y.sombraContato = function (obj, g, forca) {
+    var v = Y.caixaVisivel(obj), w = v.w * 0.8, h = Math.max(10, v.w * 0.07);
+    var e = Y.elipse({ x: v.x + (v.w - w) / 2, y: v.y + v.h - h * 0.6, w: w, h: h, cor: "#000000", nome: "SOMBRA CONTATO" }, g);
+    e = rasterizar(e); e.applyGaussianBlur(h * 0.6); e.blendMode = BlendMode.MULTIPLY; e.opacity = forca || 70; e.move(obj, ElementPlacement.PLACEAFTER); return e;
+  };
+  // Luz de recorte (rim light): faixa de luz na borda do lado da fonte de luz (dx,dy = de onde vem a luz, ex.: -6,-4).
+  Y.luzRecorte = function (obj, cor, dx, dy, op) {
+    D.activeLayer = obj; var a = new ActionDescriptor(), r = new ActionReference(); r.putProperty(s("channel"), s("selection")); a.putReference(s("null"), r);
+    var c = new ActionReference(); try { c.putEnumerated(s("channel"), s("channel"), s("mask")); a.putReference(s("to"), c); executeAction(s("set"), a, DialogModes.NO); }
+    catch (e) { a = new ActionDescriptor(); a.putReference(s("null"), r); c = new ActionReference(); c.putEnumerated(s("channel"), s("channel"), s("transparencyEnum")); a.putReference(s("to"), c); executeAction(s("set"), a, DialogModes.NO); }
+    var l = D.artLayers.add(); l.name = "LUZ DE RECORTE"; D.selection.fill(rgb(cor || "#FFFFFF"));
+    D.selection.translateBoundary(UnitValue(-(dx || -6), "px"), UnitValue(-(dy || -4), "px")); D.selection.clear(); D.selection.deselect();
+    l.applyGaussianBlur(2.5); l.blendMode = BlendMode.SCREEN; l.opacity = op || 85; l.move(obj, ElementPlacement.PLACEBEFORE); Y.recorte(l); return l;
+  };
   Y.D = function () { return D; };
   // Lê um JSON (alvos.json do ciclo.py, preset.json da marca). ExtendScript não tem JSON nativo confiável.
   Y.lerJSON = function (caminho) { var f = new File(caminho); f.encoding = "UTF-8"; if (!f.exists) return {}; f.open("r"); var t = f.read(); f.close(); return eval("(" + t + ")"); };

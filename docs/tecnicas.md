@@ -21,5 +21,17 @@ no PNG, ⚠️ funciona com ressalva.
 | **Cantos de tela de celular** | `medir_objeto.py --ps "the phone" --retangulo` (ângulo/largura/topo por regressão das bordas) e geometria do aparelho para os cantos escondidos pela mão | ✅ |
 | **Dedos por cima da tela** | cópia da foto no topo com `Y.mascara(copia, ["the fingers","the thumb"], {estrito:true})` | ✅ |
 
+| **Sombra longa (flat)** | `Y.sombraLonga(l, 45, 1500, "#B4740F", 100)` (silhueta arrastada dobrando: log2 passos) | ✅ |
+| **Extrusão 3D** | `Y.extrusao(texto, 40, "#1B6B53", 60)` (cópias empilhadas + chanfro leve na frente) | ✅ |
+| **Neon** | `Y.neon(texto, "#FF2BD6")` (núcleo branco + brilho interno + externo + halo desfocado em Tela) | ✅ |
+| **Cromado** | `Y.cromado(texto)` (degradê metálico + chanfro preciso + cetim + traço) | ✅ |
+| **Texto vazado** | `Y.textoVazado(texto, foto)` (foto recortada na letra; fonte bem pesada/condensada) | ✅ |
+| **Retícula (halftone)** | `Y.reticula(foto, 9)` (filtro inteligente, charID ClrH) | ✅ |
+| **Sombra de contato** | `Y.sombraContato(objeto, g, 80)` (elipse desfocada em Multiplicação sob a base visível) | ✅ |
+| **Luz de recorte** | `Y.luzRecorte(objeto, "#7FD8FF", -10, -4, 95)`: faixa do lado da luz, recortada no objeto. Só aparece com sujeito escurecido antes (Y.integrar/curvas) | ✅ |
+| Efeitos novos no `Y.efeitos` | `brilhoInterno`, `sombraInterna`, `chanfro`, `degrade`, `cetim` (chaves do dicionário do binário) | ✅ |
+
+Painel do lote 2: `_laboratorio/painel-tecnicas-2.png`. Bug resolvido: preencher com transparência travada dá "parâmetros de Preencher inválidos"; usar `selection.fill(cor, NORMAL, 100, true)` (4º argumento = preservar transparência).
+
 ## Exemplo completo
 `_laboratorio/mockup_celular.jsx` (pasta privada): foto de mão com celular + arte da marca na tela + reflexo + dedos por cima.
