@@ -8,6 +8,7 @@
 - Saída: JSON (uma lista) + prévia `*.medidas.png` com as caixas desenhadas para conferir.
 - `cy`/`ch` = topo e altura do CORPO (altura das maiúsculas): use em texto caixa alta, o motor encaixa pela letra H
   e ignora acento/cedilha (que mudam a caixa total e faziam o tamanho sair errado).
+- `xy`/`xh` = faixa da altura-x (minúsculas). Linha com minúscula: passar no alvo e o motor encaixa pelo "x".
 Use as caixas no arte.jsx com `alvo: {x, y, w, h}` em Y.texto: o motor ajusta tamanho e posição até bater.
 """
 import argparse
@@ -20,7 +21,8 @@ from PIL import Image, ImageDraw
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("img"); ap.add_argument("--cor", required=True); ap.add_argument("--tol", type=int, default=60)
+    ap.add_argument("img"); ap.add_argument("--cor", required=True); ap.add_argument("--tol", default="auto",
+                    help="distância RGB máxima; 'auto' (padrão com --regiao) = metade da distância texto x fundo = borda a 50%% de cobertura")
     ap.add_argument("--largura", type=int, default=1080); ap.add_argument("--regiao", type=int, nargs=4)
     ap.add_argument("--min-alt", type=int, default=6); ap.add_argument("--juntar", type=int, default=3,
                     help="linhas separadas por até N px vazios viram uma só")
@@ -28,10 +30,20 @@ def main():
     a = ap.parse_args()
     im = Image.open(a.img).convert("RGB"); W0, H0 = im.size
     px = np.asarray(im, dtype=np.float32)
+    cores = [np.array([int(c.strip()[i:i + 2], 16) for i in (1, 3, 5)], dtype=np.float32) for c in a.cor.split(",")]
+    if a.tol == "auto":
+        if a.regiao:   # fundo = mediana da moldura da região (o texto não encosta na borda da região)
+            x1, y1, x2, y2 = a.regiao; sub = px[y1:y2, x1:x2]
+            fundo = np.median(np.concatenate([sub[0], sub[-1], sub[:, 0], sub[:, -1]]), axis=0)
+            tol = max(25.0, min(np.sqrt(((c - fundo) ** 2).sum()) for c in cores) * 0.5)
+        else:
+            tol = 60.0
+    else:
+        tol = float(a.tol)
     m = np.zeros(px.shape[:2], dtype=bool)
     for c in a.cor.split(","):  # várias cores: "#FFFFFF,#3ED6A6" (linha com palavra destacada)
         c = c.strip(); alvo = np.array([int(c[i:i + 2], 16) for i in (1, 3, 5)], dtype=np.float32)
-        m |= np.sqrt(((px - alvo) ** 2).sum(axis=2)) < a.tol
+        m |= np.sqrt(((px - alvo) ** 2).sum(axis=2)) < tol
     if a.regiao:
         x1, y1, x2, y2 = a.regiao; z = np.zeros_like(m); z[y1:y2, x1:x2] = m[y1:y2, x1:x2]; m = z
     linhas_on = m.sum(axis=1) > max(2, m.shape[1] * 0.004)
@@ -56,15 +68,18 @@ def main():
         # corpo = faixa densa da linha (altura de maiúscula em texto CAIXA ALTA): ignora acento, cedilha, vírgula, cauda do Q
         cont = m[ya:yb].sum(axis=1); den = np.where(cont >= cont.max() * a.corpo)[0]
         cy, cb = ya + den.min(), ya + den.max() + 1
+        # faixa do x (minúsculas): linhas bem cheias (>= 45%); ascendentes, acentos e descendentes ficam de fora
+        dx_ = np.where(cont >= cont.max() * 0.45)[0]; xy_, xb_ = ya + dx_.min(), ya + dx_.max() + 1
         # cor real do texto: mediana dos pixels do miolo das letras (sem a borda antisserrilhada)
         sel = px[ya:yb, xa:xb][m[ya:yb, xa:xb]]
         lum = sel.sum(axis=1); miolo = sel[lum >= np.percentile(lum, 50)] if len(sel) > 20 else sel
         cor = "#%02X%02X%02X" % tuple(int(v) for v in np.median(miolo, axis=0)) if len(miolo) else ""
         res.append({"x": round(xa * k), "y": round(ya * k), "w": round((xb - xa) * k), "h": round((yb - ya) * k),
-                    "cy": round(cy * k), "ch": round((cb - cy) * k), "cor": cor})
+                    "cy": round(cy * k), "ch": round((cb - cy) * k),
+                    "xy": round(xy_ * k), "xh": round((xb_ - xy_) * k), "cor": cor})
         d.rectangle([xa, ya, xb, yb], outline=(255, 0, 0), width=2)
     saida = os.path.splitext(a.img)[0] + ".medidas.png"; prev.save(saida)
-    print(json.dumps(res)); print(saida)
+    print(json.dumps(res)); print(saida, f"(tol {tol:.0f})")
 
 
 if __name__ == "__main__":

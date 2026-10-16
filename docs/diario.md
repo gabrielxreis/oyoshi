@@ -45,3 +45,9 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - `medir_objeto.py --ps "the camera"`: abre a referência no Photoshop, seleção por IA e devolve a caixa (258,258,561x579 na AGM; o limiar de cor errava porque a câmera tem partes escuras e um brilho em volta).
 - `Y.caixaVisivel` / `Y.encaixarVisivel`: layer.bounds ignora a máscara, então o objeto recortado "media" a foto inteira. Agora mede pela máscara carregada como seleção. Câmera do remake: x 260 / largura 557 / centro 548 contra 258 / 561 / 547 na referência.
 - SKILL.md ganhou o "Ciclo idêntico" (medir > encaixar > sobrepor) como passo obrigatório.
+
+## 2026-10-16 03h (f): ciclo fechado, objeto girado, altura-x
+- `Y.alinharObjeto(l, prompt, ref, anguloFoto)`: gira a foto pela diferença de ângulo (PCA da máscara de IA, `medir_objeto.py --ps` agora devolve `angulo` e `centro`), escala pela caixa e centraliza. Celular do "quanto ganha": foto a -22,3°, referência a 10,1°; depois de alinhar, 10,3° e centro a 9 px.
+- Minúsculas encaixam pela altura do "x" (`xy/xh` no medir_texto): "Os números chamam atenção." saía com tracking aberto porque acentos/cedilha mudavam a caixa total.
+- `medir_texto.py --tol auto` (padrão): borda a 50% de cobertura (metade da distância texto x fundo). Com tolerância fixa a altura-x variava 17-19 px (10% no tamanho).
+- `ciclo.py`: mede ref > grava alvos.json > monta > mede remake (só em volta da caixa, só os campos que o motor usa) > corrige. Bora "quanto ganha": subtítulos e apoio bateram com <= 1 px na 1ª volta.

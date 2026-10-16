@@ -46,16 +46,28 @@ def main():
     a = ap.parse_args()
     im = Image.open(a.img).convert("RGB"); k = a.largura / im.width
     if a.ps:
+        MASCARA = os.path.splitext(a.img)[0] + ".mascara.png"
         import sys; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import ps_lib as PS
         lib = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jsx", "yoshi.jsx")
         r = PS.js(f"""$.evalFile({json.dumps(lib)}); var d = app.open(new File({json.dumps(os.path.abspath(a.img))})); Y.usar(d);
-var out; try {{ Y.selecionarPorPrompt(d.activeLayer, {json.dumps(a.ps.split("|"))});
+var out; try {{ if (d.mode != DocumentMode.RGB) d.changeMode(ChangeMode.RGB); Y.selecionarPorPrompt(d.activeLayer, {json.dumps(a.ps.split("|"))});
   var bb = d.selection.bounds; out = [bb[0].as("px"), bb[1].as("px"), bb[2].as("px"), bb[3].as("px")].join(",");
+  var l = d.artLayers.add(); var c = new SolidColor(); c.rgb.hexValue = "FFFFFF"; d.selection.fill(c); d.selection.invert();
+  c.rgb.hexValue = "000000"; d.selection.fill(c); d.selection.deselect();
+  var o = new PNGSaveOptions(); d.saveAs(new File({json.dumps(MASCARA)}), o, true);
 }} catch (e) {{ out = "ERRO " + e; }} d.close(SaveOptions.DONOTSAVECHANGES); out""", timeout=300)
         if r.startswith("ERRO"):
             print(r); return
         bx1, by1, bx2, by2 = [float(v) for v in r.split(",")]
-        print(json.dumps({"x": round(bx1 * k), "y": round(by1 * k), "w": round((bx2 - bx1) * k), "h": round((by2 - by1) * k)}))
+        res = {"x": round(bx1 * k), "y": round(by1 * k), "w": round((bx2 - bx1) * k), "h": round((by2 - by1) * k)}
+        # ângulo do eixo principal (PCA da máscara): 0 = em pé; positivo = topo inclinado para a DIREITA
+        mm = np.asarray(Image.open(MASCARA).convert("L")) > 128; ys, xs = np.where(mm)
+        if len(xs) > 50:
+            cov = np.cov(np.vstack([xs - xs.mean(), ys - ys.mean()])); val, vec = np.linalg.eigh(cov); v = vec[:, 1]
+            if v[1] > 0: v = -v
+            res["angulo"] = round(float(np.degrees(np.arctan2(v[0], -v[1]))), 1)
+            res["centro"] = [round(xs.mean() * k), round(ys.mean() * k)]
+        print(json.dumps(res)); print(MASCARA)
         return
     if not a.regiao:
         ap.error("--regiao é obrigatória sem --ps")

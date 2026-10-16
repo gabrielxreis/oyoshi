@@ -93,6 +93,19 @@ var Y = (function () {
     var dy = alinhar === "base" ? c.y + c.h - v.h - v.y : (alinhar === "topo" ? c.y - v.y : c.y + (c.h - v.h) / 2 - v.y);
     l.translate(c.x + (c.w - v.w) / 2 - v.x, dy); return l;
   };
+  // Alinha um OBJETO da foto com o da referência: gira pela diferença de ângulo, escala pela altura da caixa e
+  // centraliza. ref = saída do medir_objeto.py --ps na referência {x,y,w,h,angulo}; anguloFoto = mesmo comando
+  // rodado no arquivo da foto. Mede a caixa por seleção de IA na própria camada (prompt em inglês).
+  Y.alinharObjeto = function (l, prompt, ref, anguloFoto) {
+    var giro = (ref.angulo || 0) - (anguloFoto || 0);
+    if (Math.abs(giro) > 0.2) l.rotate(giro, AnchorPosition.MIDDLECENTER);
+    function caixa() { Y.selecionarPorPrompt(l, prompt); var bb = D.selection.bounds; D.selection.deselect();
+      var x = bb[0].as("px"), y = bb[1].as("px"); return { x: x, y: y, w: bb[2].as("px") - x, h: bb[3].as("px") - y }; }
+    var c = caixa(), e = ref.h / c.h;
+    if (Math.abs(e - 1) > 0.003) { l.resize(e * 100, e * 100, AnchorPosition.MIDDLECENTER); c = caixa(); }
+    l.translate(ref.x + ref.w / 2 - (c.x + c.w / 2), ref.y + ref.h / 2 - (c.y + c.h / 2));
+    return l;
+  };
   // Recorta a pessoa/objeto principal (Selecionar assunto, IA local) e cria máscara na camada.
   Y.recortar = function (l) {
     D.activeLayer = l; var a = new ActionDescriptor(); a.putBoolean(s("sampleAllLayers"), false); executeAction(s("autoCutout"), a, DialogModes.NO);
@@ -146,14 +159,16 @@ var Y = (function () {
     function px() { return ti.size.as ? ti.size.as("px") : Number(ti.size); }
     var porLarg = alvo.por === "largura";
     // CAIXA ALTA com corpo medido (cy/ch): mede pela altura do "H" numa cópia, sem acento/cedilha atrapalhar
-    var caps = alvo.ch && !/[a-zà-ÿ]/.test(ti.contents), sonda = null;
+    // minúsculas com xh medido: mede pelo "x" (acento, cedilha, ascendente e descendente não atrapalham)
+    var temMin = /[a-zà-ÿ]/.test(ti.contents), caps = (alvo.ch && !temMin) || (alvo.xh && temMin), sonda = null;
+    var letra = temMin ? "x" : "H", altAlvo = temMin ? alvo.xh : alvo.ch, topoAlvo = temMin ? alvo.xy : alvo.cy;
     function altura() {
       if (!caps) return b(l);
       if (sonda) sonda.remove();
-      sonda = l.duplicate(); sonda.textItem.contents = "H"; return b(sonda);
+      sonda = l.duplicate(); sonda.textItem.contents = letra; return b(sonda);
     }
     for (i = 0; i < 5; i++) {
-      bb = altura(); f = porLarg ? alvo.w / b(l).w : (caps ? alvo.ch : alvo.h) / bb.h;
+      bb = altura(); f = porLarg ? alvo.w / b(l).w : (caps ? altAlvo : alvo.h) / bb.h;
       if (Math.abs(f - 1) < 0.002) break;
       ti.size = px() * f;
       if (ti.useAutoLeading === false) { try { ti.leading = ti.leading.as("px") * f; } catch (e) {} }
@@ -176,7 +191,7 @@ var Y = (function () {
         ti.leading = ti.leading.as("px") * alvo.passo / real;
       }
     }
-    bb = b(l); var topo = caps ? altura().y : bb.y, alvoY = caps ? alvo.cy : alvo.y;
+    bb = b(l); var topo = caps ? altura().y : bb.y, alvoY = caps ? topoAlvo : alvo.y;
     if (sonda) sonda.remove();
     l.translate(alvo.x - bb.x, alvoY - topo); return l;
   };
@@ -475,5 +490,7 @@ var Y = (function () {
   };
   Y.bounds = function (l) { var bb = b(l); return bb.x + "," + bb.y + "," + bb.w + "," + bb.h; };
   Y.D = function () { return D; };
+  // Lê um JSON (alvos.json do ciclo.py, preset.json da marca). ExtendScript não tem JSON nativo confiável.
+  Y.lerJSON = function (caminho) { var f = new File(caminho); f.encoding = "UTF-8"; if (!f.exists) return {}; f.open("r"); var t = f.read(); f.close(); return eval("(" + t + ")"); };
   return Y;
 })();
