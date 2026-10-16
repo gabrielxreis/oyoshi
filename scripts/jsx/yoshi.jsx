@@ -222,6 +222,17 @@ var Y = (function () {
     if (png) { D.saveAs(new File(png), new PNGSaveOptions(), true); }
     return psd || png;
   };
+  // Carrossel panorâmico: exporta n fatias de largura w (PNG) a partir do documento inteiro. prefixo + "-01.png"...
+  Y.fatiar = function (prefixo, n, w) {
+    var orig = D, h = D.height.as("px");
+    for (var i = 0; i < n; i++) {
+      var c = orig.duplicate("fatia", true); // achatada
+      c.crop([i * w, 0, (i + 1) * w, h]);
+      c.saveAs(new File(prefixo + "-" + (i < 9 ? "0" : "") + (i + 1) + ".png"), new PNGSaveOptions(), true);
+      c.close(SaveOptions.DONOTSAVECHANGES);
+    }
+    app.activeDocument = orig; D = orig; return n;
+  };
   Y.bounds = function (l) { var bb = b(l); return bb.x + "," + bb.y + "," + bb.w + "," + bb.h; };
   Y.D = function () { return D; };
   return Y;

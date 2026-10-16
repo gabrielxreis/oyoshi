@@ -53,6 +53,18 @@ BACKGROUND        foto de palco/show (pode ser gerada por IA) como smart object 
 
 Fundo preto, um retângulo "papel" claro no centro, 10+ recortes vetoriais coloridos (smart objects com Sobreposição de cor: verde-limão, rosa, laranja, verde-escuro), textura de papel em Multiplicação 50% por cima, foto P&B da pessoa orando embaixo, título "SUNDAY / PRAYER" em **Six Caps** gigantesco (1769 px num A4) cor creme #F7EDD0, data em **Climate Crisis**.
 
+## Variação "banco internacional" (8 templates de banco, 16/10/2026)
+
+Mais simples e mais "limpa" que o show gospel. Árvore curta: `Logo / Social Media / Text / Design / Image / Background` (às vezes `Adjustments FX`, `Back Text`, `NOISE`). Técnicas:
+- **Palavra repetida empilhada**: o tema 3x em condensada gigante (Bebas Neue), uma linha cheia e as outras vazadas/transparentes, pessoa recortada na frente.
+- **Texto em arco** sobre a cabeça da pessoa ("SUNDAY WORSHIP SERVICE") com ícone pequeno no centro do arco.
+- **Ícones de linha fina** (cruz, estrela de 4 pontas, raios) em branco, como ornamento.
+- **Script por cima** de uma palavra em serifa/condensada ("worship", "santa"), em cor de destaque.
+- **Caixa alta com tamanhos misturados** em serifa itálica (Playfair Display Italic) para frase acolhedora ("A PLACE WHERE YOU'RE WELCOME").
+- Fitas de pincel coloridas (azul/vermelho) e rabiscos amarelos atrás da pessoa.
+- Data e hora em Bebas Neue com script ao lado ("11TH September"), redes sociais em linha com ícones.
+- Efeito mais usado: **Sombra projetada** (texto sobre foto). Fontes: Bebas Neue, Playfair Display Italic, DM Sans, Montserrat Black, Roboto (todas Google).
+
 ## Tipografia
 
 | Papel | Fonte dos templates | Licença / alternativa |
