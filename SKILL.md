@@ -74,6 +74,8 @@ Lições das primeiras artes (16/10/2026): degradê de fusão alto demais escond
   1. **Adobe** `python3 SKILL_DIR/scripts/reconhecer_fonte.py img.png X1 Y1 X2 Y2` (UMA linha de texto): roda o "Localizar fonte semelhante" e salva a lista (`*.fontes.png`, ler com Read). Ícone de nuvem = Adobe Fonts.
   2. **Ativar** as candidatas da nuvem: `PS.ferramenta("document_create_text_layer", {..., "font_name": "Good Pro XCond Ultra"})` (ativa a família inteira).
   3. **Decidir** com o comparador local: `SKILL_DIR/.venv/bin/python SKILL_DIR/scripts/comparar_fonte.py img.png X1 Y1 X2 Y2 "TEXTO EXATO" [--filtro GoodPro,Anton]`: renderiza o texto em todas as fontes (sistema + Adobe Fonts ativadas, ~7 s) e ranqueia por forma (IoU) + **largura**; salva `*.comparacao.png` para conferir. Testado: acertou GoodPro-XCondUltra na Calverstone, onde o 1º palpite do Adobe (CompUltra) era largo demais.
+     Agora o tracking é livre (o comparador espaça as letras até a proporção bater, porque tracking se ajusta no Photoshop) e a nota pesa **desenho das letras + espessura do traço**; `--cor "#FFFFFF,#3ED6A6"` aceita linha com palavra destacada. Traço fino usa correlação desfocada (IoU sozinho erra em Light/Thin).
+  3b. **Empate ou dúvida** (referência pequena, pesos vizinhos, larguras Wide/XWide da mesma família)? **Prova de fogo** no Photoshop: `python3 SKILL_DIR/scripts/provar_fontes.py arte.jsx ref.png VAR "A,B,C" X1 Y1 X2 Y2 MARCA=...` monta a arte com cada candidata (texto com `alvo` medido) e ranqueia pela sobreposição. Foi assim que a Bora Comunicação saiu: OwnersWide-XLight nas linhas finas e OwnersWide-Regular no "Arraste" (o comparador sozinho apontava Helvetica Neue).
   4. Nada bateu (fonte comercial fora do Adobe)? **WhatTheFont** (myfonts.com/pages/whatthefont) no navegador com o recorte: devolve parecidas pagas; escolher a gratuita mais próxima e avisar. Google Lens NÃO serve (lê a palavra, não a fonte).
   - Primeira vez numa máquina: `python3 -m venv SKILL_DIR/.venv && SKILL_DIR/.venv/bin/pip install psd-tools fonttools numpy pillow`.
 - **Fonte faltando:** procurar e baixar (Adobe Fonts > Google Fonts > fundição, detalhes no `docs/metodo_arvore.md`); fonte paga nunca de site pirata.
@@ -82,5 +84,7 @@ Lições das primeiras artes (16/10/2026): degradê de fusão alto demais escond
 - **Tudo editável:** texto como camada de texto (fonte pelo PostScript name, conferida em `app.fonts`), foto como smart object, cor por camada de ajuste ou estilo. Nunca achatar o PSD entregue.
 - **Conferir com os olhos:** exportar PNG (`saveAs` cópia) e abrir com Read antes de dizer que está pronto.
 - **Um desfazer por etapa:** agrupar lotes com `doc.suspendHistory`.
+- **PNG com halo quase transparente** (logo exportado com sombra 1-5%): o Photoshop mede a camada pelo alfa > 0 e o logo entra menor. Rodar `scripts/aparar.py logo.png` e colocar o `*.aparado.png`.
+- **Documentos abertos:** `montar.py` fecha o que abriu depois de salvar (`ABRIR=1` deixa aberto). 21 documentos de teste abertos = "discos de trabalho cheios".
 - **Alertas:** `ps_lib` fecha sozinho alerta modal do Photoshop e guarda o texto em `PS.ALERTAS`; ler depois de cada etapa.
 - Sem travessão nos textos das peças.

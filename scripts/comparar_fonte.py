@@ -18,7 +18,7 @@ import sys
 
 import numpy as np
 from fontTools.ttLib import TTCollection, TTFont
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 CACHE = os.path.expanduser("~/.claude/skills/oyoshi/.venv/fontes_indice.json")
 PASTAS = ["/System/Library/Fonts", "/Library/Fonts", os.path.expanduser("~/Library/Fonts"),
@@ -75,11 +75,29 @@ def apertar(m):
     return m[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
 
 
-def render(caminho, idx, texto, alt=120):
+def render(caminho, idx, texto, alt=120, ar=None):
+    """Renderiza o texto. Com `ar` (largura/altura da referência), ajusta o espaço entre letras (tracking) até a
+    proporção bater: assim a nota compara o DESENHO das letras, já que o tracking a gente ajusta no Photoshop."""
     try:
         fnt = ImageFont.truetype(caminho, alt, index=idx)
     except Exception:
         return None
+    if ar:
+        base = render(caminho, idx, texto, alt)
+        if base is None or len(texto) < 2:
+            return base
+        extra = (ar * base.shape[0] - base.shape[1]) / (len(texto) - 1)
+        if abs(extra) > alt * 0.25:   # precisaria de tracking absurdo: devolve sem ajuste (a nota de largura pune)
+            return base
+        try:
+            larg = [fnt.getlength(c) for c in texto]
+            W = int(sum(larg) + extra * len(texto) + alt * 2); im = Image.new("L", (max(8, W), alt * 3), 0); d = ImageDraw.Draw(im)
+            x = alt / 2
+            for c, w in zip(texto, larg):
+                d.text((x, alt), c, font=fnt, fill=255); x += w + extra
+            return apertar(np.asarray(im) > 128)
+        except Exception:
+            return base
     try:
         bx = fnt.getbbox(texto)
     except Exception:
@@ -95,7 +113,7 @@ def render(caminho, idx, texto, alt=120):
     return apertar(np.asarray(im) > 128)
 
 
-def nota(ref, cand, H=64):
+def nota(ref, cand, H=96):
     if cand is None or cand.shape[0] < 4:
         return 0, 0
     ar_ref, ar_c = ref.shape[1] / ref.shape[0], cand.shape[1] / cand.shape[0]
@@ -104,7 +122,23 @@ def nota(ref, cand, H=64):
     a = np.asarray(Image.fromarray(ref.astype(np.uint8) * 255).resize((W, H))) > 128
     b = np.asarray(Image.fromarray(cand.astype(np.uint8) * 255).resize((W, H))) > 128
     iou = (a & b).sum() / max(1, (a | b).sum())
-    return iou * 0.65 + larg * 0.35, larg
+    # correlação das máscaras desfocadas: tolera 1-2 px de deslocamento (fonte fina/Light, onde o IoU despenca)
+    def borra(m):
+        return np.asarray(Image.fromarray(m.astype(np.uint8) * 255).filter(ImageFilter.GaussianBlur(H / 40)), dtype=np.float32)
+    x, y = borra(a), borra(b); x -= x.mean(); y -= y.mean()
+    corr = float((x * y).sum() / max(1e-6, np.sqrt((x * x).sum() * (y * y).sum())))
+    forma = max(iou, corr) if a.mean() < 0.25 else iou   # traço fino ocupa pouco do recorte
+    return forma * 0.65 + larg * 0.35, larg
+
+
+def peso(ref, cand, H=96):
+    """Proporção de tinta na mesma caixa: separa pesos da mesma família (Thin, Light, Regular, Bold)."""
+    if cand is None:
+        return 0
+    W = max(8, int(H * ref.shape[1] / ref.shape[0]))
+    a = (np.asarray(Image.fromarray(ref.astype(np.uint8) * 255).resize((W, H))) > 128).mean()
+    b = (np.asarray(Image.fromarray(cand.astype(np.uint8) * 255).resize((W, H))) > 128).mean()
+    return min(a, b) / max(a, b, 1e-6)
 
 
 def main():
@@ -133,7 +167,14 @@ def main():
             continue
         if not precisa.issubset(set(cob)):
             continue
-        n, larg = nota(ref, render(f, i, a.texto))
+        cand = render(f, i, a.texto)
+        if cand is None:
+            continue
+        _, larg = nota(ref, cand)                       # largura natural (sem tracking)
+        ajust = render(f, i, a.texto, ar=ref.shape[1] / ref.shape[0])
+        forma, _ = nota(ref, ajust)
+        dens = peso(ref, ajust)                          # espessura do traço (Thin x Light x Regular)
+        n = (forma - 0.35) / 0.65 * 0.6 + dens * 0.25 + larg * 0.15
         if n > 0:
             res.append((n, larg, ps, f, i))
     res.sort(reverse=True)
@@ -143,7 +184,7 @@ def main():
     # folha de comparação
     linhas = [Image.fromarray(ref.astype(np.uint8) * 255)]
     for n, larg, ps, f, i in top[:8]:
-        linhas.append(Image.fromarray(render(f, i, a.texto).astype(np.uint8) * 255))
+        linhas.append(Image.fromarray(render(f, i, a.texto, ar=ref.shape[1] / ref.shape[0]).astype(np.uint8) * 255))
     H = 60; ims = [im.resize((max(1, int(im.width * H / im.height)), H)) for im in linhas]
     W = max(im.width for im in ims) + 360
     folha = Image.new("L", (W, (H + 14) * len(ims)), 0); d = ImageDraw.Draw(folha)
