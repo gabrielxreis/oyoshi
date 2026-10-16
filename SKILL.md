@@ -68,6 +68,8 @@ PS.js("app.activeDocument.activeLayer.name")               # 2) ExtendScript (DO
 
 Lições das primeiras artes (16/10/2026): degradê de fusão alto demais esconde a foto (parar em ~35-55%); quadros de glitch em Diferença precisam cair SOBRE a pessoa (fora dela a cópia é transparente); "Selecionar assunto" tira objetos (púlpito, fundo) junto: bom para pregador; setas e símbolos (→ ↓) às vezes não existem na fonte da marca: usar uma `faixa` com Inter só no símbolo; texto gigante de fundo na cor muito próxima do fundo some (subir 1-2 tons); fonte variável com eixo óptico (DM Sans) pode não aparecer até reiniciar o Photoshop (usar a parecida instalada); preto e branco de foto = Preenchimento cinza em modo Cor recortado + curvas.
 
+**Versão story de um post (4:5 ou 1:1 -> 9:16):** `python3 SKILL_DIR/scripts/montar.py SKILL_DIR/scripts/jsx/para_story.jsx ARQ=/caminho/post.psd` gera `post-story.psd/png`: amplia a tela, expande a foto de fundo com sensível ao conteúdo (local, sem crédito), estica a granulação e sobe o rodapé para fora dos 250-340 px de baixo (caixa de mensagem). Conferir o PNG. Técnicas de efeito e produção (mockup, neon, 3D, dupla exposição, lote de posts...) estão em `docs/tecnicas.md`.
+
 ## Presets (ler antes de desenhar)
 
 - **Por marca** (privado, nunca no git): `<pasta_saida>/<Marca>/design/preset.json` + `design-<marca>.md`. Tem prioridade sobre o estilo.
