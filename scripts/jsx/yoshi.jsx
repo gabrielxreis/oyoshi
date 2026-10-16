@@ -147,6 +147,17 @@ var Y = (function () {
         ti.tracking = Math.round(ti.tracking + dw / (n * px() / 1000));
       }
     }
+    // alvo.passo = distância medida entre o topo de linhas iguais (ex.: 1ª e 3ª linha / 2) -> entrelinha exata
+    if (alvo.passo) {
+      ti.useAutoLeading = false; ti.leading = alvo.passo;
+      var linhas = ti.contents.split(/[\r\n]/);
+      if (linhas.length > 1) for (i = 0; i < 4; i++) {  // mede o passo real: fundo do bloco - fundo da última linha sozinha
+        var so = l.duplicate(); so.textItem.contents = linhas[linhas.length - 1];
+        var real = (b(l).y + b(l).h - (b(so).y + b(so).h)) / (linhas.length - 1); so.remove();
+        if (Math.abs(real - alvo.passo) < 0.3) break;
+        ti.leading = ti.leading.as("px") * alvo.passo / real;
+      }
+    }
     bb = b(l); var topo = caps ? altura().y : bb.y, alvoY = caps ? alvo.cy : alvo.y;
     if (sonda) sonda.remove();
     l.translate(alvo.x - bb.x, alvoY - topo); return l;
