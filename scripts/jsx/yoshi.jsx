@@ -272,6 +272,23 @@ var Y = (function () {
     }
     return gl;
   };
+  // Caminho (linha poligonal) com traço e brilho: conectores de infográfico. pts: [[x,y],[x,y],...]
+  Y.caminho = function (pts, hex, largura, g, brilho, nome) {
+    var l = D.artLayers.add(); l.name = nome || "LINHA";
+    var arr = [];
+    for (var i = 0; i < pts.length; i++) { var p = new PathPointInfo(); p.kind = PointKind.CORNERPOINT; p.anchor = [pts[i][0], pts[i][1]]; p.leftDirection = p.anchor; p.rightDirection = p.anchor; arr.push(p); }
+    var sp = new SubPathInfo(); sp.closed = false; sp.operation = ShapeOperation.SHAPEXOR; sp.entireSubPath = arr;
+    var path = D.pathItems.add("yoshi_tmp", [sp]);
+    app.foregroundColor = rgb(hex);
+    var a = new ActionDescriptor(), r = new ActionReference(); r.putClass(s("paintbrushTool")); a.putReference(s("null"), r); executeAction(s("select"), a, DialogModes.NO);
+    var b1 = new ActionDescriptor(), r1 = new ActionReference(); r1.putEnumerated(s("brush"), s("ordinal"), s("targetEnum")); b1.putReference(s("null"), r1);
+    var bd = new ActionDescriptor(); bd.putUnitDouble(s("diameter"), s("pixelsUnit"), largura || 3); bd.putUnitDouble(s("hardness"), s("percentUnit"), 100); b1.putObject(s("to"), s("brush"), bd); executeAction(s("set"), b1, DialogModes.NO);
+    D.activeLayer = l; path.strokePath(ToolType.BRUSH, false); path.remove();
+    if (brilho !== false) Y.efeitos(l, { brilho: { cor: hex, op: 85, tam: 14 } });
+    return entra(l, g);
+  };
+  // Círculo cheio com brilho (ponto de conexão do infográfico)
+  Y.ponto = function (cx, cy, r, hex, g) { var e = Y.elipse({ x: cx - r, y: cy - r, w: 2 * r, h: 2 * r, cor: hex, nome: "PONTO" }, g); Y.efeitos(e, { brilho: { cor: hex, op: 90, tam: 12 } }); return e; };
   // Brilho radial suave (luz atrás do objeto/pessoa): elipse com difusão grande em camada própria.
   Y.brilho = function (cx, cy, rx, ry, hex, op, g, modo) {
     var l = D.artLayers.add(); l.name = "BRILHO " + hex;
@@ -293,7 +310,52 @@ var Y = (function () {
     D.selection.fill(rgb(hex)); D.selection.deselect();
     Y.efeitos(l, { brilho: { cor: hex, op: 75, tam: 10 } }); l.opacity = 70; return entra(l, g);
   };
-  Y.recorte = function (l) { D.activeLayer = l; var a = new ActionDescriptor(); a.putReference(s("null"), refAtiva()); executeAction(s("groupEvent"), a, DialogModes.NO); return l; };
+  // ---------- máscaras e "texto atrás" ----------
+  // Ferramenta nativa do agente do Photoshop (precisa de jsx/agente_lib.jsx na mesma pasta).
+  function agente(nome, params) {
+    if (typeof ferramenta === "undefined") $.evalFile(File($.fileName).path + "/agente_lib.jsx");
+    return eval("(" + ferramenta(nome, params) + ")");
+  }
+  // Seleciona por descrição ("o celular", "a pessoa da esquerda", "o céu") só na camada ativa.
+  // prompt pode ser lista: ["o celular", "a mão"] = soma as seleções (um objeto composto raramente vem inteiro num prompt só).
+  Y.selecionarPorPrompt = function (l, prompt) {
+    D.activeLayer = l;
+    var doc = agente("application_list_open_documents", {}).data.front_doc_id;
+    var lista = (prompt instanceof Array) ? prompt : [prompt];
+    for (var i = 0; i < lista.length; i++) {
+      var r = agente("selection_select_by_prompt", { doc_id: doc, prompt: lista[i], sample_all_layers: false, selection_mode: i ? "add" : "replace" });
+      if (r.status !== "success") throw new Error("seleção por prompt falhou (" + lista[i] + "): " + r.data);
+    }
+    return true;
+  };
+  // Máscara a partir da seleção atual (ou cria seleção por prompt antes). inverter: esconde o objeto em vez de mostrar.
+  Y.mascara = function (l, prompt, inverter) {
+    var ok = false;
+    if (prompt) { try { Y.selecionarPorPrompt(l, prompt); ok = true; } catch (e) { $.writeln("prompt falhou, usando Selecionar assunto: " + e); } }
+    if (!ok) { D.activeLayer = l; var a = new ActionDescriptor(); a.putBoolean(s("sampleAllLayers"), false); executeAction(s("autoCutout"), a, DialogModes.NO); }
+    if (inverter) D.selection.invert();
+    D.activeLayer = l;
+    var m = new ActionDescriptor(); m.putClass(s("new"), s("channel")); var r = new ActionReference(); r.putEnumerated(s("channel"), s("channel"), s("mask"));
+    m.putReference(s("at"), r); m.putEnumerated(s("using"), s("userMaskEnabled"), s("revealSelection")); executeAction(s("make"), m, DialogModes.NO);
+    D.selection.deselect(); return l;
+  };
+  // TEXTO ATRÁS: copia a camada da foto para um grupo ACIMA do texto e deixa só a pessoa/objeto (máscara por IA).
+  // prompt vazio = pessoa principal (Selecionar assunto); prompt = objeto ("o celular na mão"). A foto original fica embaixo, inteira.
+  Y.naFrente = function (foto, grupoAcima, prompt, nome) {
+    var c = foto.duplicate(); c.name = nome || ("NA FRENTE: " + (prompt || "pessoa"));
+    c.move(grupoAcima, ElementPlacement.PLACEATBEGINNING);
+    try { D.activeLayer = c; executeAction(s("deleteUserMask") , (function(){ var a = new ActionDescriptor(); var r = new ActionReference(); r.putEnumerated(s("channel"), s("channel"), s("mask")); a.putReference(s("null"), r); a.putBoolean(s("apply"), false); return a; })(), DialogModes.NO); } catch (e) {}
+    Y.mascara(c, prompt, false);
+    return c;
+  };
+  // Contorno do texto visível POR CIMA do objeto (o trecho que fica atrás aparece só em linha): cópia do texto sem preenchimento
+  // com traço, recortada (máscara de corte) na camada "na frente".
+  Y.contornoSobre = function (texto, naFrente, hex, px) {
+    var c = texto.duplicate(); c.name = texto.name + " (contorno sobre o objeto)";
+    c.move(naFrente, ElementPlacement.PLACEBEFORE);
+    Y.efeitos(c, { traco: { px: px || 2, cor: hex || "#FFFFFF", posicao: "center" } }); c.fillOpacity = 0; Y.recorte(c); return c;
+  };
+  Y.recorte = function (l) { if (l.grouped) return l; D.activeLayer = l; var a = new ActionDescriptor(); a.putReference(s("null"), refAtiva()); executeAction(s("groupEvent"), a, DialogModes.NO); return l; };
 
   // ---------- saída ----------
   Y.salvar = function (psd, png) {

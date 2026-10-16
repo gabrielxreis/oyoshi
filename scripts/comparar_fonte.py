@@ -111,10 +111,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("img"); ap.add_argument("x1", type=int); ap.add_argument("y1", type=int)
     ap.add_argument("x2", type=int); ap.add_argument("y2", type=int); ap.add_argument("texto")
-    ap.add_argument("--filtro", default=""); ap.add_argument("--top", type=int, default=12)
+    ap.add_argument("--filtro", default="")
+    ap.add_argument("--cor", default="", help="cor do texto na referência (#RRGGBB): pega só os pixels perto dessa cor (use quando há foto/objeto atrás ou na frente)")
+    ap.add_argument("--tol", type=int, default=70); ap.add_argument("--top", type=int, default=12)
     a = ap.parse_args()
     crop = Image.open(a.img).convert("RGB").crop((a.x1, a.y1, a.x2, a.y2))
-    ref = apertar(binarizar(crop))
+    if a.cor:
+        alvo = np.array([int(a.cor[i:i + 2], 16) for i in (1, 3, 5)], dtype=np.float32)
+        px = np.asarray(crop, dtype=np.float32)
+        ref = apertar(np.sqrt(((px - alvo) ** 2).sum(axis=2)) < a.tol)
+    else:
+        ref = apertar(binarizar(crop))
     fontes = indice()
     termos = [t.strip().lower() for t in a.filtro.split(",") if t.strip()]
     res = []

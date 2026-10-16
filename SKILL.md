@@ -47,6 +47,15 @@ PS.js("app.activeDocument.activeLayer.name")               # 2) ExtendScript (DO
 6. **Passada de refinamento:** margens iguais, alinhamentos, respiro, hierarquia; ajustar o que existe, sem empilhar efeito novo.
 7. Conferir a árvore do PSD com `dissecar_psd.py` se for entregar o arquivo.
 
+**Texto atrás de pessoa/objeto e máscaras (técnica obrigatória do repertório):**
+- Pessoa/objeto já recortado (foto de estúdio): grupo do TEXTO embaixo, grupo do OBJETO em cima (`Y.mascara(foto)` = Selecionar assunto, ou `Y.mascara(foto, ["the phone", "the hand"])` = seleção por descrição, **prompts em inglês funcionam melhor e objeto composto vai em LISTA**; se o prompt falhar o motor cai no Selecionar assunto).
+- Pessoa dentro de uma foto de fundo: `Y.naFrente(foto, grupoAcimaDoTexto, prompt)` duplica a foto para cima do texto e deixa só a pessoa/objeto (o fundo continua inteiro embaixo).
+- Trecho da palavra que fica atrás aparecendo em linha por cima do objeto: `Y.contornoSobre(texto, objeto, cor, px)`.
+- Máscara para esconder um objeto (inverter): `Y.mascara(foto, "the sign", true)`.
+- Regra: o objeto cobre no máximo ~30% da palavra (continua legível). Exemplo: `Bora Imigrar/design/artes/2026-10-16-remake-quanto-ganha/`.
+
+**Composição e tipografia:** ler `docs/composicao_e_tipografia.md` (planos, terços, espaço para o olhar, hierarquia, quebras de linha, zonas seguras do Instagram) e passar o checklist do fim antes de entregar.
+
 **Remontar do Instagram real** (o melhor treino): capturar o post (Chrome logado: abrir o post e dar zoom na imagem com `save_to_disk`), identificar fontes, remontar e comparar LADO A LADO (`comparar.py`-style: as duas imagens na mesma altura) até a tipografia, a escala e as cores baterem. Foto: escolher pela COMPOSIÇÃO (sujeito centralizado, espaço para texto); prévia do Magnific é URL pública, conferir antes de pagar. Foto de estúdio recortada sobre outro ambiente fica artificial.
 
 Lições das primeiras artes (16/10/2026): degradê de fusão alto demais esconde a foto (parar em ~35-55%); quadros de glitch em Diferença precisam cair SOBRE a pessoa (fora dela a cópia é transparente); "Selecionar assunto" tira objetos (púlpito, fundo) junto: bom para pregador; setas e símbolos (→ ↓) às vezes não existem na fonte da marca: usar uma `faixa` com Inter só no símbolo; texto gigante de fundo na cor muito próxima do fundo some (subir 1-2 tons); fonte variável com eixo óptico (DM Sans) pode não aparecer até reiniciar o Photoshop (usar a parecida instalada); preto e branco de foto = Preenchimento cinza em modo Cor recortado + curvas.
