@@ -56,8 +56,12 @@ def main():
         # corpo = faixa densa da linha (altura de maiúscula em texto CAIXA ALTA): ignora acento, cedilha, vírgula, cauda do Q
         cont = m[ya:yb].sum(axis=1); den = np.where(cont >= cont.max() * a.corpo)[0]
         cy, cb = ya + den.min(), ya + den.max() + 1
+        # cor real do texto: mediana dos pixels do miolo das letras (sem a borda antisserrilhada)
+        sel = px[ya:yb, xa:xb][m[ya:yb, xa:xb]]
+        lum = sel.sum(axis=1); miolo = sel[lum >= np.percentile(lum, 50)] if len(sel) > 20 else sel
+        cor = "#%02X%02X%02X" % tuple(int(v) for v in np.median(miolo, axis=0)) if len(miolo) else ""
         res.append({"x": round(xa * k), "y": round(ya * k), "w": round((xb - xa) * k), "h": round((yb - ya) * k),
-                    "cy": round(cy * k), "ch": round((cb - cy) * k)})
+                    "cy": round(cy * k), "ch": round((cb - cy) * k), "cor": cor})
         d.rectangle([xa, ya, xb, yb], outline=(255, 0, 0), width=2)
     saida = os.path.splitext(a.img)[0] + ".medidas.png"; prev.save(saida)
     print(json.dumps(res)); print(saida)

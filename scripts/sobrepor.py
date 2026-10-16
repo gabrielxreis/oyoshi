@@ -21,7 +21,7 @@ def main():
     ap.add_argument("--cor"); ap.add_argument("--tol", type=int, default=50); ap.add_argument("--regiao", type=int, nargs=4)
     a = ap.parse_args()
     b = Image.open(a.remake).convert("RGB"); W, H = b.size
-    r = Image.open(a.ref).convert("RGB"); r = r.resize((W, round(r.height * W / r.width)))
+    r0 = Image.open(a.ref).convert("RGB"); wr = r0.width; r = r0.resize((W, round(r0.height * W / r0.width)))
     r = r.crop((0, 0, W, H)) if r.height >= H else ImageOps.pad(r, (W, H), centering=(0, 0))
     mix = Image.blend(r, b, 0.5)
     er = ImageOps.grayscale(r).filter(ImageFilter.FIND_EDGES).point(lambda v: 255 if v > 40 else 0)
@@ -34,11 +34,15 @@ def main():
     # nota geral de alinhamento: bordas da referência que têm borda do remake a até 2 px (e vice-versa)
     from PIL import ImageFilter as F
     def mbord(im):
-        e = np.asarray(ImageOps.grayscale(im).filter(F.FIND_EDGES)) > 60
+        e = np.asarray(ImageOps.grayscale(im).filter(F.FIND_EDGES)) > 24
         if a.regiao:
             x1, y1, x2, y2 = a.regiao; z = np.zeros_like(e); z[y1:y2, x1:x2] = e[y1:y2, x1:x2]; e = z
         return e
-    er_, eb_ = mbord(r), mbord(b)
+    # comparação justa: o remake passa pela MESMA resolução da referência (captura de 536-980 px ampliada fica
+    # borrada e quase sem borda; sem isso a nota despenca mesmo com o texto no lugar certo) + desfoque leve
+    bj = b.resize((wr, round(H * wr / W)), Image.LANCZOS).resize((W, H), Image.LANCZOS) if wr < W else b
+    suave = lambda im: im.filter(F.GaussianBlur(1.2))
+    er_, eb_ = mbord(suave(r)), mbord(suave(bj))
     dil = lambda m: np.asarray(Image.fromarray((m * 255).astype(np.uint8)).filter(F.MaxFilter(5))) > 0
     prec = (eb_ & dil(er_)).sum() / max(1, eb_.sum()); rec = (er_ & dil(eb_)).sum() / max(1, er_.sum())
     print(f"nota bordas (2 px): {2 * prec * rec / max(1e-6, prec + rec):.3f}  (remake->ref {prec:.2f}, ref->remake {rec:.2f})")
