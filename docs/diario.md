@@ -51,3 +51,10 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - Minúsculas encaixam pela altura do "x" (`xy/xh` no medir_texto): "Os números chamam atenção." saía com tracking aberto porque acentos/cedilha mudavam a caixa total.
 - `medir_texto.py --tol auto` (padrão): borda a 50% de cobertura (metade da distância texto x fundo). Com tolerância fixa a altura-x variava 17-19 px (10% no tamanho).
 - `ciclo.py`: mede ref > grava alvos.json > monta > mede remake (só em volta da caixa, só os campos que o motor usa) > corrige. Bora "quanto ganha": subtítulos e apoio bateram com <= 1 px na 1ª volta.
+
+## 2026-10-16 03h (g): cor de objeto e objeto retangular
+- `casar_cor.py`: casar a cor de um objeto com a referência. Curvas por canal com diferença grande POSTERIZAM (manchas ciano/vermelhas na pele); `--modo luz` = curva suave no composto + sólido no modo Cor com o tom mediano. Mão clara virou a mão em contraluz do original sem artefato.
+- Máscaras por prompt agora têm nome próprio (`*.the-hand.mascara.png`) e o casar_cor aceita `--menos-ref/--menos-rem` (mão MENOS celular).
+- Tela do celular: degradê com cores AMOSTRADAS ao longo do eixo da tela do original.
+- `medir_objeto.py --retangulo`: em objeto de borda reta segurado, o PCA erra (10,1° x 7,9° reais) porque a mão entra na seleção. Ajuste das bordas esquerda/direita por regressão nas faixas sem dedo + centro da borda de cima. `Y.alinharRetangulo` e `Y.retanguloGirado` usam isso (celular desenhado em vetor, mão da foto por cima).
+- Erro de leitura meu: conferi o topo numa prévia reduzida e achei que estava 40 px fora; no tamanho real o ponto caía certo. Conferir sempre na resolução nativa.

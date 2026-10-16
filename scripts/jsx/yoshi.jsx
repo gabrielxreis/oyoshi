@@ -106,6 +106,23 @@ var Y = (function () {
     l.translate(ref.x + ref.w / 2 - (c.x + c.w / 2), ref.y + ref.h / 2 - (c.y + c.h / 2));
     return l;
   };
+  // Objeto RETANGULAR (celular, tela, quadro): leva o centro da borda de cima do objeto da foto ao ponto da
+  // referência, com o mesmo ângulo e a mesma largura. foto/ref = "retangulo" do medir_objeto.py --ps ... --retangulo
+  // (foto medida no arquivo original, em pixels nativos: passar --largura <largura nativa>); larguraNativa = px da foto.
+  Y.alinharRetangulo = function (l, foto, ref, larguraNativa) {
+    var bb = b(l), s0 = bb.w / larguraNativa, s = ref.largura / foto.largura;
+    l.resize(s / s0 * 100, s / s0 * 100, AnchorPosition.MIDDLECENTER); bb = b(l);
+    var px = bb.x + foto.topo[0] * s, py = bb.y + foto.topo[1] * s, cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+    var d = ref.angulo - foto.angulo, r = d * Math.PI / 180;
+    if (Math.abs(d) > 0.05) l.rotate(d, AnchorPosition.MIDDLECENTER);
+    var qx = cx + (px - cx) * Math.cos(r) - (py - cy) * Math.sin(r), qy = cy + (px - cx) * Math.sin(r) + (py - cy) * Math.cos(r);
+    l.translate(ref.topo[0] - qx, ref.topo[1] - qy); return l;
+  };
+  // Retângulo arredondado girado (celular/tela desenhados em vetor). c = centro {x,y}; ang em graus (horário).
+  Y.retanguloGirado = function (c, w, h, raio, cor, ang, nome, g) {
+    var l = Y.retangulo({ x: c.x - w / 2, y: c.y - h / 2, w: w, h: h, raio: raio, cor: cor, nome: nome }, g);
+    if (ang) l.rotate(ang, AnchorPosition.MIDDLECENTER); return l;
+  };
   // Recorta a pessoa/objeto principal (Selecionar assunto, IA local) e cria máscara na camada.
   Y.recortar = function (l) {
     D.activeLayer = l; var a = new ActionDescriptor(); a.putBoolean(s("sampleAllLayers"), false); executeAction(s("autoCutout"), a, DialogModes.NO);
@@ -283,12 +300,19 @@ var Y = (function () {
     l.applyAddNoise(quantidade || 12, NoiseDistribution.GAUSSIAN, true); l.blendMode = BlendMode.OVERLAY; l.opacity = opacidade === undefined ? 35 : opacidade;
     return entra(l, g);
   };
-  Y.curvas = function (pontos, nome, g, op) { // pontos [[0,0],[64,50],[192,205],[255,255]] (canal composto)
+  // pontos: [[0,0],[64,50],[192,205],[255,255]] (canal composto) OU por canal {rgb:[..], r:[..], g:[..], b:[..]}
+  // (saída do casar_cor.py: casa a cor de uma foto/objeto com a referência).
+  Y.curvas = function (pontos, nome, g, op) {
     var a = new ActionDescriptor(), r = new ActionReference(); r.putClass(s("adjustmentLayer")); a.putReference(s("null"), r);
     var u = new ActionDescriptor(), cv = new ActionDescriptor(); cv.putEnumerated(s("presetKind"), s("presetKindType"), s("presetKindCustom"));
-    var lst = new ActionList(), ch = new ActionDescriptor(), rc = new ActionReference(); rc.putEnumerated(s("channel"), s("channel"), s("composite")); ch.putReference(s("channel"), rc);
-    var pl = new ActionList(); for (var i = 0; i < pontos.length; i++) { var p = new ActionDescriptor(); p.putDouble(s("horizontal"), pontos[i][0]); p.putDouble(s("vertical"), pontos[i][1]); pl.putObject(s("paint"), p); }
-    ch.putList(s("curve"), pl); lst.putObject(s("curvesAdjustment"), ch); cv.putList(s("adjustment"), lst);
+    var lst = new ActionList(), canais = (pontos instanceof Array) ? { rgb: pontos } : pontos;
+    var nomes = { rgb: "composite", r: "red", g: "green", b: "blue" };
+    for (var k in nomes) { if (!canais[k]) continue;
+      var ch = new ActionDescriptor(), rc = new ActionReference(); rc.putEnumerated(s("channel"), s("channel"), s(nomes[k])); ch.putReference(s("channel"), rc);
+      var pl = new ActionList(), pts = canais[k];
+      for (var i = 0; i < pts.length; i++) { var p = new ActionDescriptor(); p.putDouble(s("horizontal"), pts[i][0]); p.putDouble(s("vertical"), pts[i][1]); pl.putObject(s("paint"), p); }
+      ch.putList(s("curve"), pl); lst.putObject(s("curvesAdjustment"), ch); }
+    cv.putList(s("adjustment"), lst);
     u.putObject(s("type"), s("curves"), cv); a.putObject(s("using"), s("adjustmentLayer"), u); executeAction(s("make"), a, DialogModes.NO);
     var l = D.activeLayer; nomeia(l, nome || "CURVAS"); if (op !== undefined) l.opacity = op; return entra(l, g);
   };
