@@ -82,38 +82,44 @@ def cor_majoritaria(px, fundo=None):
     return np.median(g, 0)
 
 
-def detectar_caixas(im, cx):
-    """Caixa marca-texto na linha: região de cor SATURADA, sólida (>= 80% do retângulo) e alta (>= 60% da linha)."""
+def detectar_caixas(im, cx, centro=None):
+    """Caixa marca-texto na linha: retângulo de cor SATURADA diferente do fundo da faixa, bordas retas (esquerda e
+    direita sólidas na altura toda), sem encostar na borda do recorte (senão é o próprio fundo). Caixas empilhadas
+    (uma por linha) são separadas pela mudança de largura entre as linhas; fica a que contém o centro da linha."""
     x1, y1, x2, y2 = cx; sub = np.asarray(im.crop(cx).convert("RGB")).astype(float); H_, W_ = sub.shape[:2]
     px = sub.reshape(-1, 3); sat = px.max(1) - px.min(1); cand = px[sat > 90]
     if len(cand) < H_ * W_ * 0.05:
         return []
     cor = np.median(cand, 0)
-    anel = np.median(np.concatenate([sub[0], sub[-1], sub[:, 0], sub[:, -1]]), 0)
-    if np.sqrt(((cor - anel) ** 2).sum()) < 70:   # a "caixa" é o próprio fundo saturado (post azul): não é marca-texto
+    faixa = np.asarray(im.crop((0, y1, im.width, y2)).convert("RGB")).astype(float)
+    anel = np.median(np.concatenate([faixa[:, :6].reshape(-1, 3), faixa[:, -6:].reshape(-1, 3)]), 0)
+    if np.sqrt(((cor - anel) ** 2).sum()) < 70:
         return []
     mk = np.sqrt(((sub - cor) ** 2).sum(2)) < 70
-    def maior_seq(idx, folga):
-        if len(idx) == 0: return None
-        mel, ini, ant = (idx[0], idx[0]), idx[0], idx[0]
-        for v in idx[1:]:
-            if v - ant > folga: ini = v
-            if v - ini > mel[1] - mel[0]: mel = (ini, v)
-            ant = v
-        return mel
-    rs = maior_seq(np.where(mk.mean(1) > 0.12)[0], 3)                  # linhas onde a cor da caixa aparece bem
-    if not rs: return []
-    faixa = mk[rs[0]:rs[1] + 1]
-    cs = maior_seq(np.where(faixa.mean(0) > 0.30)[0], max(12, int((rs[1] - rs[0]) * 0.6)))   # letras brancas abrem buracos
-    if not cs: return []
-    if not rs or (cs[1] - cs[0]) < W_ * 0.08 or (rs[1] - rs[0]) < H_ * 0.4:
+    # extensão horizontal por linha (fechando buracos das letras), e segmentos verticais de extensão parecida
+    ext = []
+    for y in range(H_):
+        xs = np.where(mk[y])[0]
+        ext.append((xs.min(), xs.max()) if len(xs) > W_ * 0.08 else None)
+    segs, ini = [], None
+    for y in range(H_ + 1):
+        e = ext[y] if y < H_ else None
+        if e is not None and ini is not None and (abs(e[0] - ext[y - 1][0]) > 8 or abs(e[1] - ext[y - 1][1]) > 8):
+            segs.append((ini, y)); ini = y; continue
+        if e is not None and ini is None: ini = y
+        if e is None and ini is not None: segs.append((ini, y)); ini = None
+    alvo_y = (centro - y1) if centro is not None else H_ / 2
+    segs = [s_ for s_ in segs if s_[1] - s_[0] >= H_ * 0.25]
+    if not segs:
         return []
-    bx = (cs[0], rs[0], cs[1] + 1, rs[1] + 1); area = (bx[2] - bx[0]) * (bx[3] - bx[1])
-    caixa_mk = mk[bx[1]:bx[3], bx[0]:bx[2]]
-    bordas = np.concatenate([caixa_mk[:3].ravel(), caixa_mk[-3:].ravel()]).mean()   # faixas sólidas acima/abaixo das letras
-    if bordas < 0.8 or caixa_mk.mean() < 0.3:
+    s0, s1 = min(segs, key=lambda s_: 0 if s_[0] <= alvo_y <= s_[1] else min(abs(alvo_y - s_[0]), abs(alvo_y - s_[1])))
+    l_ = int(np.median([ext[y][0] for y in range(s0, s1)])); r_ = int(np.median([ext[y][1] for y in range(s0, s1)]))
+    if l_ <= 2 or r_ >= W_ - 3:   # encosta no recorte: é o fundo, não uma caixa
         return []
-    return [{"cor": "#%02X%02X%02X" % tuple(int(v) for v in cor), "ref": [x1 + bx[0], y1 + bx[1], x1 + bx[2], y1 + bx[3]], "rgb": cor}]
+    caixa_mk = mk[s0:s1, l_:r_ + 1]
+    if caixa_mk[:, :3].mean() < 0.85 or caixa_mk[:, -3:].mean() < 0.85 or caixa_mk.mean() < 0.3:
+        return []
+    return [{"cor": "#%02X%02X%02X" % tuple(int(v) for v in cor), "ref": [x1 + l_, y1 + s0, x1 + r_ + 1, y1 + s1], "rgb": cor}]
 
 
 def caixa_cor(im, cor, w, linha_cx, k):
@@ -205,9 +211,9 @@ def faixas_palavras(im, linha, cor_linha, fonte_neg):
     # negrito: espessura bem acima da mais fina da linha (linha mista); calibrado: Montserrat Bold 0,11+, Regular <= 0,03
     ds = sorted(x[0] for x in ok); corte = None
     # negrito: sobrevivência à erosão > 0,12 (calibrado: Montserrat Bold 0,15-0,30; Regular <= 0,09 mesmo com maiúscula)
-    if len(ds) > 1 and ds[-1] > 0.12 and ds[0] < 0.12:
-        corte = 0.12
-    TODA_NEGRITO[0] = bool(ds) and ds[0] > 0.12 and len(ds) >= 1   # linha inteira em negrito
+    if len(ds) > 1 and ds[-1] > 0.12 and ds[-1] > 2.2 * ds[0] + 0.03:   # mistura de pesos na linha (relativo à mais fina)
+        corte = max(0.12, (ds[0] + ds[-1]) / 2)
+    TODA_NEGRITO[0] = bool(ds) and ds[0] > 0.2   # linha inteira em negrito
     # cor-base = a cor da MAIORIA das palavras (pesada pela largura), não a mediana da linha (o vermelho puxava)
     larguras = [w["w"] for w, x in zip(pal, info) if x]; cores = [x[1] for x in ok]
     def grupo(c): return sum(lw for lw, o in zip(larguras, cores) if np.sqrt(((o - c) ** 2).sum()) < 60)
@@ -336,7 +342,7 @@ def main():
     todas_caixas = []
     for l in linhas:
         pad = max(2, int(l["h"] * 0.35)); cx0 = (max(0, l["x"] - pad), max(0, l["y"] - pad), min(W0, l["x"] + l["w"] + pad), min(H0, l["y"] + l["h"] + pad))
-        for c_ in detectar_caixas(im, cx0):
+        for c_ in detectar_caixas(im, cx0, l["y"] + l["h"] / 2):
             if not any(abs(c_["ref"][0] - o["ref"][0]) < 8 and abs(c_["ref"][1] - o["ref"][1]) < 8 for o in todas_caixas): todas_caixas.append(c_)
     zonas = [[int(v) for v in z.split(",")] for z in a.zonas.split(";") if z.strip()]
     for i, l in enumerate(linhas):

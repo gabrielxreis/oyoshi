@@ -124,3 +124,8 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - O fundo agora é apagado só onde há tinta (dilatada 3 px), não no retângulo inteiro: o celular na frente da palavra fica intacto.
 - Cor da tinta: entre os grupos com forma de traço e contraste >= 60% do maior, o de maior área (antes o contorno preto do celular vencia o creme das letras).
 - Bugs no caminho: ocultar medindo sobre o PNG já mascarado (agora remonta antes), máscara aplicada na cópia de contorno (busca ignora "CONTORNO").
+
+## 2026-10-16 06h (b): caixas empilhadas e oclusão sem falso positivo
+- `detectar_caixas` reescrita: fundo da linha pelas bordas esquerda/direita da FAIXA inteira da imagem (caixas empilhadas deixavam topo/base laranjas e a caixa era rejeitada como "fundo"); caixas empilhadas separadas pela mudança de largura linha a linha; bordas laterais retas obrigatórias e sem encostar no recorte (o fundo azul do 13 mil não é mais "caixa"). Currículo médico: duas caixas laranjas certas.
+- `ocultar.py`: cobertura medida com tolerância proporcional (tinta do remake com tinta da referência perto) e oclusão só quando a falta está CONCENTRADA num trecho (>= 75% numa janela de 45% da linha). GANHA atrás do celular: 1,00; diferenças de fonte/peso espalhadas: ~0,70 (ignoradas).
+- Negrito relativo dentro da linha (mais grossa > 2,2x a mais fina + 0,03).

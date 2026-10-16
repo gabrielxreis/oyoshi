@@ -39,9 +39,19 @@ def main():
         if not a: continue
         cx = (max(0, a["x"] - 6), max(0, a["y"] - 6), min(W, a["x"] + a["w"] + 6), min(H, a["y"] + a["h"] + 6))
         cores = it["cor"].split(","); mr, mm = tinta(ref, cores, cx), tinta(rem, cores, cx)
-        cob = mr.sum() / max(1, mm.sum())
+        # cobertura robusta a peso/posição: tinta do remake que tem tinta da referência a até 3 px
+        rd = max(7, int(a["h"] * 0.12)) | 1   # tolerância proporcional (peso/fonte um pouco diferente não é "objeto na frente")
+        dil = np.asarray(Image.fromarray((mr * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(rd))) > 0
+        cob = (mm & dil).sum() / max(1, mm.sum())
         print(f"{n}: cobertura {cob:.2f}", flush=True)
         if cob >= lim or mm.sum() < 50:
+            continue
+        # objeto na frente = falta CONCENTRADA num trecho (o celular cobre algumas letras); falta espalhada pela
+        # linha toda é fonte/peso diferente, não oclusão
+        falta = (mm & ~dil).sum(0).astype(float); jan = max(5, int(len(falta) * 0.45))
+        conc = np.convolve(falta, np.ones(jan), "valid").max() / max(1, falta.sum())
+        print(f"   falta concentrada {conc:.2f}", flush=True)
+        if conc < 0.75:
             continue
         # abertura: tira traços finos (contorno desenhado sobre o objeto) antes de dilatar; senão a máscara sai pontilhada
         esp = max(3, int(round((a["h"] * 0.06)))) | 1
