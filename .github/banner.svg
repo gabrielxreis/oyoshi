@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="220" viewBox="0 0 900 220">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1410"/>
+      <stop offset="1" stop-color="#13261c"/>
+    </linearGradient>
+    <linearGradient id="tx" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3ddc68"/>
+      <stop offset="1" stop-color="#a6f28c"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="220" rx="18" fill="url(#bg)"/>
+  <g fill="none" stroke="#24412f" stroke-width="2">
+    <rect x="36" y="58" width="78" height="104" rx="8"/>
+    <rect x="48" y="70" width="54" height="40" rx="4"/>
+    <line x1="48" y1="124" x2="102" y2="124"/>
+    <line x1="48" y1="138" x2="88" y2="138"/>
+  </g>
+  <circle cx="102" cy="70" r="11" fill="#3ddc68"/>
+  <circle cx="102" cy="70" r="4" fill="#0b1410"/>
+  <text x="140" y="128" font-family="Poppins, Inter, Helvetica, Arial, sans-serif" font-size="92" font-weight="800" fill="url(#tx)">/oyoshi</text>
+  <text x="142" y="168" font-family="Poppins, Inter, Helvetica, Arial, sans-serif" font-size="22" font-weight="500" fill="#c9d1d9">o designer com IA dentro do Photoshop</text>
+  <g font-family="Menlo, monospace" font-size="15" fill="#5f7a68">
+    <text x="600" y="62">referência › layout › texto</text>
+    <text x="600" y="86">camadas › efeitos › cor</text>
+    <text x="600" y="110">conferência › export</text>
+  </g>
+</svg>
