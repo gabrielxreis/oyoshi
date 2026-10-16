@@ -69,3 +69,8 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - Lote 2 (efeitos de design): sombra longa, extrusão 3D, neon, cromado, texto vazado, retícula, sombra de contato, luz de recorte. `Y.efeitos` ganhou chanfro, brilho interno, sombra interna, degradê, cetim (chaves tiradas do dicionário do binário). Painel em `_laboratorio/painel-tecnicas-2.png`.
 - Lote 3 (produção): trocar conteúdo de objeto inteligente + `lote.py` (série de posts a partir de um JSON), expandir fundo com sensível ao conteúdo (4:5 -> 9:16 sem crédito), separação de frequência + esquivar/queimar, dupla exposição.
 - Lição da dupla exposição: Tela só funciona com sujeito escuro; com jaleco claro tudo estoura. Receita certa = Multiplicação + rosto preservado por máscara esfumada.
+
+## 2026-10-16 04h (c): story automático, QA automático, carrossel em pranchetas
+- `jsx/para_story.jsx`: feed -> story 9:16 (fundo expandido com sensível ao conteúdo, granulação esticada, rodapé fora da caixa de mensagem). Calverstone saiu pronta para publicar.
+- `conferir_arte.py`: contraste WCAG do texto contra o fundo REAL, zona segura, tamanho mínimo, margens, centro (só em texto centralizado). Já pegou o "01/05" da Bora com 3,2:1.
+- Pranchetas: o DOM não cria texto dentro de prancheta e o evento AM de converter grupo fica indisponível; as ferramentas nativas do agente resolvem. Bug achado no caminho: variável global `lista` num script sobrescrevia a função `lista()` do desc2json e quebrava toda resposta com lista ("Object não é uma função"); funções internas agora têm prefixo `_d2j`.

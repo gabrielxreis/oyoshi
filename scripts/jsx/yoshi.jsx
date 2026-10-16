@@ -151,7 +151,8 @@ var Y = (function () {
   // o: {txt, fonte, px, cor, x, y, ancora:"tl|tc|tr|bl|bc", tracking, entrelinha, caixa:{w,h}, alinh:"esq|centro|dir", caps,
   //     faixas:[{de,ate,fonte,px,cor}]}  (faixas = trechos com estilo diferente dentro da mesma camada)
   Y.texto = function (o, g) {
-    var l = D.artLayers.add(); l.kind = LayerKind.TEXT; var ti = l.textItem;
+    var l = D.artLayers.add(); l.kind = LayerKind.TEXT;   // (dentro de prancheta isto falha: montar em grupo e converter no fim, Y.virarPrancheta)
+    var ti = l.textItem;
     if (o.caixa) { ti.kind = TextType.PARAGRAPHTEXT; ti.width = o.caixa.w; ti.height = o.caixa.h; }
     ti.contents = o.txt.replace(/\n/g, "\r"); ti.font = o.fonte; ti.size = o.px; ti.color = rgb(o.cor || "#FFFFFF");
     ti.justification = o.alinh === "centro" ? Justification.CENTER : (o.alinh === "dir" ? Justification.RIGHT : Justification.LEFT);
@@ -725,6 +726,31 @@ var Y = (function () {
     D.activeLayer = paisagem; var m = new ActionDescriptor(); m.putClass(s("new"), s("channel")); var mr = new ActionReference(); mr.putEnumerated(s("channel"), s("channel"), s("mask"));
     m.putReference(s("at"), mr); m.putEnumerated(s("using"), s("userMaskEnabled"), s("hideSelection")); executeAction(s("make"), m, DialogModes.NO); D.selection.deselect();
     return paisagem;
+  };
+  // ---------- pranchetas (carrossel num PSD só) ----------
+  // Texto NÃO pode ser criado por script dentro de prancheta (erro "camada não pode conter texto"). Fluxo: montar cada
+  // slide como GRUPO normal (Y.slides) e no fim converter com Y.virarPrancheta (artboardFromLayerGroupEvent).
+  Y.PRANCHETAS = [];
+  Y.slides = function (n, w, h, prefixo) { var lst = []; for (var i = 0; i < n; i++) { var g = D.layerSets.add(); g.name = (prefixo || "SLIDE ") + (i < 9 ? "0" : "") + (i + 1);
+    lst.push({ g: g, x: i * (w + 100), y: 0, w: w, h: h }); } return lst; };
+  // Converte o grupo do slide em prancheta pelas ferramentas NATIVAS do agente (o evento AM artboardFromLayerGroup
+  // não fica disponível por script): cria a prancheta vazia no retângulo e move o grupo para dentro.
+  Y.virarPrancheta = function (sl) {
+    var doc = agente("application_list_open_documents", {}).data.front_doc_id;
+    var ab = agente("document_create_artboard", { doc_id: doc, anchor: { x: sl.x, y: sl.y }, size: { width: sl.w, height: sl.h }, name: sl.g.name });
+    if (ab.status !== "success") throw new Error("prancheta: " + ab.data);
+    D.activeLayer = sl.g; var gid = agente("document_get_layer_selection", { doc_id: doc }).data.selected_layer_ids[0];
+    var mv = agente("layer_reorder", { doc_id: doc, layer_id: gid, position: "inside", relative_to_layer_id: ab.data.layer_id });
+    if (mv.status !== "success") throw new Error("mover para prancheta: " + mv.data);
+    Y.PRANCHETAS.push({ nome: sl.g.name, r: sl }); return ab.data.layer_id;
+  };
+  // Exporta cada prancheta em PNG (prefixo-01.png ...): cópia do documento, recorta no retângulo da prancheta.
+  Y.exportarPranchetas = function (prefixo) {
+    var orig = D, out = [];
+    for (var i = 0; i < Y.PRANCHETAS.length; i++) { var p = Y.PRANCHETAS[i], dup = orig.duplicate("exp", true);
+      dup.crop([UnitValue(p.r.x, "px"), UnitValue(p.r.y, "px"), UnitValue(p.r.x + p.r.w, "px"), UnitValue(p.r.y + p.r.h, "px")]);
+      var f = new File(prefixo + "-" + (i < 9 ? "0" : "") + (i + 1) + ".png"); dup.saveAs(f, new PNGSaveOptions(), true); dup.close(SaveOptions.DONOTSAVECHANGES); out.push(f.fsName); }
+    app.activeDocument = orig; D = orig; return out;
   };
   Y.D = function () { return D; };
   // Lê um JSON (alvos.json do ciclo.py, preset.json da marca). ExtendScript não tem JSON nativo confiável.

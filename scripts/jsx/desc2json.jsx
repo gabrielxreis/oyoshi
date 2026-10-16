@@ -1,10 +1,10 @@
 function s(x){return stringIDToTypeID(x);}
 function nomeId(id){ try{ var n=typeIDToStringID(id); if(n) return n; }catch(e){} try{ return typeIDToCharID(id);}catch(e){} return String(id); }
 function q(x){ return '"'+String(x).replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\r/g,'\\r').replace(/\n/g,'\\n').replace(/\t/g,'\\t')+'"'; }
-function val(c, k, t, prof){
+function _d2jVal(c, k, t, prof){
   switch(t){
-    case DescValueType.OBJECTTYPE: var cc=corpo(c.getObjectValue(k),prof+1); return '{"_obj":'+q(nomeId(c.getObjectType(k)))+(cc=='{}'?'}':','+cc.slice(1));
-    case DescValueType.LISTTYPE: return lista(c.getList(k),prof+1);
+    case DescValueType.OBJECTTYPE: var cc=_d2jCorpo(c.getObjectValue(k),prof+1); return '{"_obj":'+q(nomeId(c.getObjectType(k)))+(cc=='{}'?'}':','+cc.slice(1));
+    case DescValueType.LISTTYPE: return _d2jLista(c.getList(k),prof+1);
     case DescValueType.STRINGTYPE: return q(c.getString(k));
     case DescValueType.INTEGERTYPE: return String(c.getInteger(k));
     case DescValueType.LARGEINTEGERTYPE: return String(c.getLargeInteger(k));
@@ -19,9 +19,9 @@ function val(c, k, t, prof){
     default: return q(String(t));
   }
 }
-function corpo(d,prof){ if(prof>12) return '{"_trunc":true}'; var a=[]; for(var i=0;i<d.count;i++){ var k=d.getKey(i); var v; try{ v=val(d,k,d.getType(k),prof);}catch(e){ v=q("ERR "+e);} a.push(q(nomeId(k))+':'+v);} return '{'+a.join(',')+'}'; }
-function lista(l,prof){ var a=[]; for(var i=0;i<l.count;i++){ try{ a.push(val(l,i,l.getType(i),prof)); }catch(e){ a.push(q("ERR "+e)); } } return '['+a.join(',')+']'; }
-function d2j(d){ return corpo(d,0); }
+function _d2jCorpo(d,prof){ if(prof>12) return '{"_trunc":true}'; var a=[]; for(var i=0;i<d.count;i++){ var k=d.getKey(i); var v; try{ v=_d2jVal(d,k,d.getType(k),prof);}catch(e){ v=q("ERR "+e);} a.push(q(nomeId(k))+':'+v);} return '{'+a.join(',')+'}'; }
+function _d2jLista(l,prof){ var a=[]; for(var i=0;i<l.count;i++){ try{ a.push(_d2jVal(l,i,l.getType(i),prof)); }catch(e){ a.push(q("ERR "+e)); } } return '['+a.join(',')+']'; }
+function d2j(d){ return _d2jCorpo(d,0); }
 function grava(nome, txt){ var f=new File(Folder.temp+"/"+nome); f.encoding="UTF-8"; f.lineFeed="Unix"; f.open("w"); f.write(txt); f.close(); return f.fsName; }
 
 function refj(r){ var a=[]; try{ while(r){ var cls=nomeId(r.getDesiredClass()); var f=r.getForm(); var o='{"_ref":'+q(cls);

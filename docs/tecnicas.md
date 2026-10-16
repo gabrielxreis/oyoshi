@@ -36,6 +36,8 @@ no PNG, ⚠️ funciona com ressalva.
 | **Separação de frequência + esquivar/queimar** | `Y.separacaoFrequencia(foto, 6)`: BAIXA (desfoque), ALTA (Aplicar Imagem subtrair, escala 2, desloc. 128, Luz Linear), cinza 50% em Luz Suave. Reconstrói a foto (diferença média 0,35) | ✅ |
 | **Dupla exposição** | `Y.duplaExposicao(pessoa, paisagem)`: pessoa P&B contrastada sobre fundo claro, paisagem em MULTIPLICAÇÃO recortada, rosto limpo por máscara elíptica esfumada. Tela (screen) estoura com pessoa clara | ✅ |
 
+| **Carrossel em pranchetas (um PSD)** | `var sl = Y.slides(5, 1080, 1350)` > montar cada slide no grupo `sl[i].g` (x = `sl[i].x`) > `Y.virarPrancheta(sl[i])` > `Y.exportarPranchetas(prefixo)` (PNG por slide). Texto não nasce por script DENTRO de prancheta; o evento AM artboardFromLayerGroup fica indisponível; as ferramentas nativas `document_create_artboard` + `layer_reorder inside` resolvem | ✅ |
+
 Painel do lote 2: `_laboratorio/painel-tecnicas-2.png`. Bug resolvido: preencher com transparência travada dá "parâmetros de Preencher inválidos"; usar `selection.fill(cor, NORMAL, 100, true)` (4º argumento = preservar transparência).
 
 ## Exemplo completo
