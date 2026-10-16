@@ -20,6 +20,7 @@
     * [Requisitos](#requisitos)
 * [COMO O YOSHI CONTROLA O PHOTOSHOP](#como-o-yoshi-controla-o-photoshop)
 * [O QUE JÁ FUNCIONA](#o-que-ja-funciona)
+* [PRESETS DE ESTILO](#presets-de-estilo)
 * [CRÉDITOS GENERATIVOS](#creditos-generativos)
 * [GRAVADOR DE AÇÕES](#gravador-de-acoes)
 * [CANVA](#canva)
@@ -91,6 +92,17 @@ Testado no Photoshop 2026 (27.11), Mac:
 - Exportar PNG, JPG e PSD em camadas, e conferir olhando a imagem.
 
 
+# PRESETS DE ESTILO
+
+O Yoshi aprende um estilo dissecando PSDs profissionais (ou fazendo engenharia reversa de posts publicados) e guarda as **técnicas** como preset: árvore de camadas, tipografia (com alternativa gratuita), paletas, mesclagens e uma receita passo a passo. Nenhum arquivo de terceiros entra no repositório.
+
+| Preset | O que é |
+|---|---|
+| [`igreja-culto`](presets/igreja-culto/README.md) | Flyer gospel: palco escuro, feixes de luz, cantor recortado e iluminado pela cor do palco, título com duas fontes na mesma palavra, anéis feitos com a letra "O", créditos em linha. Variação colagem. |
+| [`igreja-moderna`](presets/igreja-moderna/README.md) | Editorial de rede de igrejas: "DMNGO" gigante, pregador saindo da moldura, colagem maximalista, fonte mono de serviço, rabiscos à mão, line-up em pirâmide, raios de cor. 5 arquétipos. |
+
+Presets **por marca** (cores, fontes, árvore e regras de um cliente) ficam na pasta do cliente, fora do git.
+
 # CRÉDITOS GENERATIVOS
 
 Estas ferramentas usam o Firefly e **gastam créditos generativos da sua conta Adobe**. O Yoshi só usa com sua autorização na hora:
@@ -138,6 +150,8 @@ docs/catalogo/local/         gerado na sua máquina pelo catalogar.py (fora do g
 scripts/ps_lib.py            ponte Python com o Photoshop
 scripts/jsx/                 bibliotecas ExtendScript (descritor para JSON, agente, gravador)
 scripts/sondar/              scripts de sondagem para refazer a engenharia reversa
+scripts/dissecar_psd.py      estuda um PSD sem abrir o Photoshop
+presets/<estilo>/            técnicas de um estilo (README + preset.json)
 ```
 
 

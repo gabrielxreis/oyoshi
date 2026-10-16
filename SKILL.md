@@ -37,6 +37,13 @@ PS.js("app.activeDocument.activeLayer.name")               # 2) ExtendScript (DO
 - **PSD de referência:** dissecar sem abrir o Photoshop (`scripts/dissecar_psd.py`, método em `docs/metodo_arvore.md`), copiar o PSD para `<Marca>/design/referencias/psd/` e escrever/atualizar `design-<marca>.md`.
 - **Árvore de camadas:** sempre a árvore padrão do `docs/metodo_arvore.md` (grupos por função, smart objects, texto em escada, pessoa na frente do título, acabamento em pilha, grão).
 
+## Presets (ler antes de desenhar)
+
+- **Por marca** (privado, nunca no git): `<pasta_saida>/<Marca>/design/preset.json` + `design-<marca>.md`. Tem prioridade sobre o estilo.
+- **Por estilo** (público, neste repo): `SKILL_DIR/presets/<estilo>/README.md` (técnicas, árvore, receita) + `preset.json` (tokens). Hoje: `igreja-culto` (flyer gospel de template: palco, luz, título com duas fontes) e `igreja-moderna` (editorial de rede de igrejas: DMNGO, moldura quebrada, colagem, mono, rabiscos; 5 arquétipos).
+- Pedido sem marca ("faz um post de culto"): perguntar a igreja/marca; se não tiver, oferecer os estilos (e arquétipos) que combinam.
+- **Preset novo a partir de referência:** PSD > `dissecar_psd.py`; imagem > engenharia reversa visual (layout, tipografia por desenho com alternativa gratuita, paleta, árvore). Técnica genérica vai para `presets/<estilo>/` (sem arquivos de terceiros, sem nome de cliente); o específico da marca vai para a pasta da marca. Arquivos de template de banco (Freepik etc.) ficam em `<pasta_saida>/_referencias-design/<estilo>/`, nunca no git.
+
 ## Regras
 
 - **Imagens e elementos por IA** (Higgsfield, Magnific, Artlist ou qualquer conector de IA): pode gerar, **mas SEMPRE perguntar antes** se o usuário quer gerar aquela imagem/elemento por IA, com o que seria gerado e o custo.
