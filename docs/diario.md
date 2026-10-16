@@ -118,3 +118,9 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - Novo: medida muito maior que a caixa do OCR = objeto da foto da mesma cor encostado (passaporte azul-escuro sob o texto verde-escuro) -> mede na região justa do OCR.
 - Novo: glifo que a fonte da marca não tem (→) vai numa faixa com Helvetica Neue (antes virava □).
 - Erro meu: `--zonas` do visa estava errado e escondeu o título; o filtro de linha torta (passaporte a -13°) resolve sozinho.
+
+## 2026-10-16 06h: texto atrás de objeto, automático
+- `ocultar.py` + `Y.mascaraDeImagem` + `Y.contornoOculto`: "QUANTO GANHA" atrás do celular saiu igual ao post (letras cobertas pelo celular, contorno fantasma sobre a tela), sem nada manual além da correção do OCR (G/INHA=GANHA).
+- O fundo agora é apagado só onde há tinta (dilatada 3 px), não no retângulo inteiro: o celular na frente da palavra fica intacto.
+- Cor da tinta: entre os grupos com forma de traço e contraste >= 60% do maior, o de maior área (antes o contorno preto do celular vencia o creme das letras).
+- Bugs no caminho: ocultar medindo sobre o PNG já mascarado (agora remonta antes), máscara aplicada na cópia de contorno (busca ignora "CONTORNO").

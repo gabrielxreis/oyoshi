@@ -779,6 +779,29 @@ var Y = (function () {
       out += txt.charAt(i); i++; }
     return { txt: out, faixas: fx };
   };
+  // Máscara de camada a partir de um PNG (alfa = visível). Procura a camada cujo nome começa com `prefixo`.
+  // Cópia só-contorno do texto, visível onde o objeto cobre a letra (efeito "letra fantasma" sobre a tela/objeto).
+  Y.contornoOculto = function (prefixo, png, cor) {
+    function acha(c) { for (var i = 0; i < c.layers.length; i++) { var l = c.layers[i];
+      if (l.typename === "LayerSet") { var r = acha(l); if (r) return r; } else if (l.name.indexOf(prefixo) === 0) return l; } return null; }
+    var base = acha(D); if (!base) return null;
+    var c = base.duplicate(); c.name = base.name.split(" ")[0] + " CONTORNO (sobre o objeto)"; c.move(base, ElementPlacement.PLACEBEFORE);
+    c.fillOpacity = 0; Y.efeitos(c, { traco: { px: 1.5, cor: cor || "#FFFFFF", posicao: "inside" } }); c.opacity = 80;
+    Y.mascaraDeImagem(c.name, png); return c;
+  };
+  Y.mascaraDeImagem = function (prefixo, png) {
+    function acha(c) { for (var i = 0; i < c.layers.length; i++) { var l = c.layers[i];
+      if (l.typename === "LayerSet") { var r = acha(l); if (r) return r; }
+      else if (l.name.indexOf(prefixo) === 0 && (prefixo.indexOf("CONTORNO") >= 0 || l.name.indexOf("CONTORNO") < 0)) return l; } return null; }
+    var alvo = acha(D); if (!alvo) return null;
+    var tmp = Y.colocar(png, "tmp mascara", null); tmp = rasterizar(tmp); D.activeLayer = tmp;
+    var a = new ActionDescriptor(), r = new ActionReference(); r.putProperty(s("channel"), s("selection")); a.putReference(s("null"), r);
+    var c = new ActionReference(); c.putEnumerated(s("channel"), s("channel"), s("transparencyEnum")); a.putReference(s("to"), c); executeAction(s("set"), a, DialogModes.NO);
+    tmp.remove(); D.activeLayer = alvo; Y.tirarMascara(alvo);
+    var m = new ActionDescriptor(); m.putClass(s("new"), s("channel")); var mr = new ActionReference(); mr.putEnumerated(s("channel"), s("channel"), s("mask"));
+    m.putReference(s("at"), mr); m.putEnumerated(s("using"), s("userMaskEnabled"), s("revealSelection")); executeAction(s("make"), m, DialogModes.NO);
+    D.selection.deselect(); return alvo;
+  };
   Y.D = function () { return D; };
   // Lê um JSON (alvos.json do ciclo.py, preset.json da marca). ExtendScript não tem JSON nativo confiável.
   Y.lerJSON = function (caminho) { var f = new File(caminho); f.encoding = "UTF-8"; if (!f.exists) return {}; f.open("r"); var t = f.read(); f.close(); return eval("(" + t + ")"); };

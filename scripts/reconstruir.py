@@ -32,7 +32,7 @@ def tinta_por_forma(sub, D2, borda, devolver_mascara=False):
     c = px[np.random.default_rng(0).choice(len(px), 3, replace=False)]
     for _ in range(10):
         lb = ((px[:, None] - c[None]) ** 2).sum(2).argmin(1); c = np.array([px[lb == j].mean(0) if (lb == j).any() else c[j] for j in range(3)])
-    lb_full = np.full(sub.shape[:2], -1); lb_full[cand] = lb; melhor, mel_c = None, -1
+    lb_full = np.full(sub.shape[:2], -1); lb_full[cand] = lb; melhor, mel_c = None, -1; cands_ = []
     for j in range(3):
         mk = lb_full == j; n = mk.sum()
         if n < cand.sum() * 0.12: continue
@@ -41,7 +41,10 @@ def tinta_por_forma(sub, D2, borda, devolver_mascara=False):
         for _ in range(max(2, int(sub.shape[0] * 0.22))): cur = cur.filter(ImageFilter.MinFilter(3))
         if (np.asarray(cur) > 0).sum() / n > 0.08: continue
         contr = float(np.sqrt(((c[j] - borda) ** 2).sum()))
-        if contr > mel_c: melhor, mel_c = j, contr
+        cands_.append((j, contr, n))
+    if cands_:   # entre os traços com contraste >= 60% do maior, o de MAIOR ÁREA (a letra; não o contorno de um objeto preto)
+        cmax = max(x[1] for x in cands_); bons = [x for x in cands_ if x[1] >= cmax * 0.6]
+        melhor = max(bons, key=lambda x: x[2])[0]
     if melhor is None:
         return None
     if devolver_mascara:
@@ -260,7 +263,7 @@ def juntar_blocos(linhas, k, pequeno):
     return out
 
 
-def fundo_por_difusao(im, caixas_doc, k, saida, lim_std=7):
+def fundo_por_difusao(im, caixas_doc, k, saida, lim_std=7, cores_caixa=None):
     """Apaga texto em fundo LISO (degradê, cor chapada) por difusão global (média dos vizinhos válidos), sem as manchas
     que o sensível ao conteúdo deixa em degradê. Devolve as caixas de fundo COM TEXTURA (vão para o sensível ao conteúdo)."""
     a = np.asarray(im.convert("RGB")).astype(np.float32).copy(); H_, W_ = a.shape[:2]
@@ -279,8 +282,19 @@ def fundo_por_difusao(im, caixas_doc, k, saida, lim_std=7):
         # liso = pouco DETALHE FINO no anel (degradê largo tem variação grande mas detalhe ~0; foto tem textura)
         if len(anel) < 20 or np.percentile(anel, 80) > lim_std:
             texturadas.append(c); continue
-        lisas[y1:y2, x1:x2] = True
-    textura = todas & ~lisas
+        cs_ = (cores_caixa or {}).get(tuple(c))
+        if cs_:   # só a TINTA da linha (dilatada): objeto na frente do texto (celular, mão) não é apagado junto
+            sub = a[y1:y2, x1:x2]; mk = np.zeros(sub.shape[:2], bool)
+            for h_ in cs_:
+                al = np.array([int(h_[i:i + 2], 16) for i in (1, 3, 5)], np.float32); mk |= np.sqrt(((sub - al) ** 2).sum(2)) < 90
+            mk = np.asarray(Image.fromarray((mk * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(7))) > 0
+            lisas[y1:y2, x1:x2] |= mk
+        else:
+            lisas[y1:y2, x1:x2] = True
+    textura = np.zeros((H_, W_), bool)   # só as áreas que vão para o sensível ao conteúdo ficam fora da difusão
+    for x1, y1, x2, y2, c in rects:
+        if c in texturadas: textura[y1:y2, x1:x2] = True
+    textura &= ~lisas
     if lisas.any():
         # semente: interpolação vertical a partir das linhas livres acima/abaixo de cada coluna, depois difusão
         valido = (~lisas & ~textura).astype(np.float32)
@@ -472,7 +486,9 @@ def main():
             novo = max(mesma, key=mesma.get); print(f"família: {c['nome'][:24]} {c['fonte']} -> {novo} (vizinhas {sorted({fam(v) for v in vizinhas})})"); c["fonte"] = novo
     json.dump({"ref": os.path.abspath(a.ref), "itens": itens}, open(os.path.join(a.pasta, "medidas.json"), "w"), ensure_ascii=False, indent=1)
     todas_ap = [c["caixa"] for c in camadas] + [b_["caixa"] for b_ in caixas_mt] + (ui_instagram(a.largura, H) if a.limpar_ui else [])
-    pre = os.path.join(a.pasta, "fundo_pre_limpo.png"); texturadas = fundo_por_difusao(im, todas_ap, k, pre)
+    pre = os.path.join(a.pasta, "fundo_pre_limpo.png")
+    cores_cx = {tuple(c["caixa"]): [c["cor"]] + [f["cor"] for f in c["faixas"] if f.get("cor")] for c in camadas}
+    texturadas = fundo_por_difusao(im, todas_ap, k, pre, cores_caixa=cores_cx)
     print(f"fundo: {len(todas_ap) - len(texturadas)} áreas lisas por difusão, {len(texturadas)} com textura para o sensível ao conteúdo", flush=True)
     js = [f"// Reconstruído automaticamente de {os.path.basename(a.ref)} (reconstruir.py): fundo limpo + textos vivos medidos.",
           f"var W = {a.largura}, H = {H}; Y.doc(W, H, {json.dumps(os.path.splitext(os.path.basename(a.ref))[0] + '-editavel')});",
@@ -500,6 +516,8 @@ def main():
     print("arte.jsx e medidas.json em", a.pasta)
     if not a.sem_ciclo:
         print(roda(sys.executable, os.path.join(AQUI, "ciclo.py"), a.pasta, timeout=3600))
+        # texto atrás de objeto: compara a tinta da referência com a do remake e mascara onde a letra está coberta
+        print(roda(sys.executable, os.path.join(AQUI, "ocultar.py"), a.pasta, timeout=1800))
 
 
 if __name__ == "__main__":
