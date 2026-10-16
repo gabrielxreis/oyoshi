@@ -397,6 +397,7 @@ def main():
             if len(ps) >= 4 and ps[0].replace(".", "").isdigit():
                 lg = float(ps[2]) if len(ps) > 3 else 1.0   # largura natural: < 0,93 exige tracking absurdo (letras grudadas)
                 ranking[ps[-1]] = float(ps[0]) * (0.97 if "Italic" in ps[-1] or "Oblique" in ps[-1] else 1.0)
+        ranking_fora = None
         if ranking and a.filtro and max(ranking.values()) < 0.6 and not pequeno:
             # nota baixa com o filtro da marca = provavelmente outra família (post fora do padrão): varre tudo
             out2 = roda(PY, os.path.join(AQUI, "comparar_fonte.py"), a.ref, *map(str, cj), txt, "--cor", ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), "--top", "12", timeout=900)
@@ -405,10 +406,10 @@ def main():
                 ps = ln.split()
                 if len(ps) >= 4 and ps[0].replace(".", "").isdigit(): r2[ps[-1]] = float(ps[0]) * (0.97 if "Italic" in ps[-1] or "Oblique" in ps[-1] else 1.0)
             if r2 and max(r2.values()) > max(ranking.values()) + 0.08:
-                print(f"   fora da família da marca: {max(r2, key=r2.get)} ({max(r2.values()):.2f}) > {max(ranking.values()):.2f}", flush=True); ranking = r2
+                ranking_fora = r2   # decide depois, pelo post inteiro (linha de 2 cores tem nota baixa mesmo com a fonte certa)
         if ranking:
             fonte = max(ranking, key=ranking.get); nota = ranking[fonte]
-        if nota < a.nota_min:   # nenhuma fonte parecida: é logo/lettering -> fica como imagem do fundo
+        if max(nota, max(ranking_fora.values()) if ranking_fora else 0) < a.nota_min:   # nenhuma fonte parecida: é logo/lettering -> fica como imagem do fundo
             print(f"{txt[:30]:<30} nota {nota:.2f}: fica como IMAGEM (logo/lettering)", flush=True); continue
         print(f"{rotulo:<30} cor {cor}  fonte {fonte} ({nota:.2f})", flush=True)
         cores_med = ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")}))   # mede a linha com TODAS as cores dela
@@ -422,10 +423,19 @@ def main():
             cx_apagar = [max(0, mj["x"] - 5), max(0, mj["y"] - 5), mj["x"] + mj["w"] + 5, mj["y"] + mj["h"] + 5]
         camadas.append({"nome": nome, "rotulo": rotulo, "txt": txt, "cor": cor, "fonte": fonte, "faixas": fx, "caixa": cx_apagar,
                         "passo": passo if l.get("n_linhas") else None,
-                        "ranking": ranking, "alt": l["h"], "pequeno": pequeno, "esp": espessura(im, cj)})
+                        "ranking": ranking, "ranking_fora": ranking_fora, "alt": l["h"], "pequeno": pequeno, "esp": espessura(im, cj)})
     for c_ in todas_caixas:
         caixas_mt.append({"cor": c_["cor"], "caixa": [round(v * k) for v in c_["ref"]]}); print(f"caixa marca-texto {c_['cor']} em {[int(v) for v in c_['ref']]}", flush=True)
     for c in camadas: print(f"   espessura {c['nome'][:24]:<24} {c['esp']:.3f}")
+    # post fora do padrão da marca? só se a MAIORIA das linhas grandes tem nota baixa com a família da marca
+    grandes_ = [c for c in camadas if not c["pequeno"] and c["ranking"]]
+    fora = [c for c in grandes_ if c.get("ranking_fora")]
+    if grandes_ and len(fora) >= max(2, len(grandes_) * 0.6):
+        for c in fora:
+            c["ranking"] = c["ranking_fora"]; c["fonte"] = max(c["ranking"], key=c["ranking"].get)
+        print(f"post fora do padrão da marca: {len(fora)}/{len(grandes_)} linhas com fonte de fora", flush=True)
+    elif fora:
+        print(f"{len(fora)} linha(s) com nota baixa mantidas na família da marca (o resto do post é da marca)", flush=True)
     # linhas grandes de altura parecida (±18%) = mesmo bloco de título: mesma fonte, a de maior soma de notas
     grandes = [c for c in camadas if not c["pequeno"] and c["ranking"]]
     def top(c_, n_=4): return set(sorted(c_["ranking"], key=c_["ranking"].get, reverse=True)[:n_])
