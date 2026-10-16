@@ -92,6 +92,7 @@ Lições das primeiras artes (16/10/2026): degradê de fusão alto demais escond
 - **Nunca rodar teste ou lote enquanto o usuário usa o Photoshop:** algumas ferramentas nativas (renomear camadas, preenchimento sensível ao conteúdo) agem no documento DA FRENTE mesmo recebendo outro `doc_id`. Antes de mexer, conferir com `application_list_open_documents` que o documento certo está na frente e avisar.
 - **Nada que gaste crédito generativo da Adobe sem o usuário autorizar na hora:** ferramentas `gen_tech_*`, `syntheticFill` (Generative Fill/Expand), Generative Upscale. Selecionar assunto, remover fundo e preenchimento sensível ao conteúdo são locais e liberados.
 - **Tudo editável:** texto como camada de texto (fonte pelo PostScript name, conferida em `app.fonts`), foto como smart object, cor por camada de ajuste ou estilo. Nunca achatar o PSD entregue.
+- **Conferência automática antes de entregar:** `SKILL_DIR/.venv/bin/python SKILL_DIR/scripts/conferir_arte.py arte.psd` (contraste WCAG do texto com o fundo real, zona segura, tamanho mínimo, margens, centro). Corrigir os avisos ou justificar.
 - **Conferir com os olhos:** exportar PNG (`saveAs` cópia) e abrir com Read antes de dizer que está pronto.
 - **Um desfazer por etapa:** agrupar lotes com `doc.suspendHistory`.
 - **PNG com halo quase transparente** (logo exportado com sombra 1-5%): o Photoshop mede a camada pelo alfa > 0 e o logo entra menor. Rodar `scripts/aparar.py logo.png` e colocar o `*.aparado.png`.
