@@ -109,7 +109,7 @@ var Y = (function () {
     if (o.tracking !== undefined) ti.tracking = o.tracking;
     if (o.entrelinha) { ti.useAutoLeading = false; ti.leading = o.entrelinha; }
     if (o.caps) ti.capitalization = TextCase.ALLCAPS;
-    ti.antiAliasMethod = AntiAlias.SMOOTH;
+    ti.antiAliasMethod = AntiAlias.SMOOTH; try { ti.autoKerning = AutoKernType.OPTICAL; } catch (e) {}
     nomeia(l, o.nome || o.txt.split("\n")[0].substr(0, 30));
     if (o.faixas) Y.faixas(l, o.faixas);
     if (o.caixa) { ti.position = [o.x, o.y]; }
@@ -212,6 +212,63 @@ var Y = (function () {
     ch.putList(s("curve"), pl); lst.putObject(s("curvesAdjustment"), ch); cv.putList(s("adjustment"), lst);
     u.putObject(s("type"), s("curves"), cv); a.putObject(s("using"), s("adjustmentLayer"), u); executeAction(s("make"), a, DialogModes.NO);
     var l = D.activeLayer; nomeia(l, nome || "CURVAS"); if (op !== undefined) l.opacity = op; return entra(l, g);
+  };
+  // Mapa de degradê (unifica a cor da peça inteira). paradas: [["#0B0710",0],["#C9A04A",100]] (sombras -> luzes)
+  Y.mapaDegrade = function (paradas, nome, g, modo, op) {
+    var a = new ActionDescriptor(), r = new ActionReference(); r.putClass(s("adjustmentLayer")); a.putReference(s("null"), r);
+    var u = new ActionDescriptor(), gm = new ActionDescriptor(), gr = new ActionDescriptor();
+    gr.putString(s("name"), "yoshi"); gr.putEnumerated(s("gradientForm"), s("gradientForm"), s("customStops")); gr.putDouble(s("interfaceIconFrameDimmed"), 4096);
+    var cl = new ActionList(), tl = new ActionList();
+    for (var i = 0; i < paradas.length; i++) { var p = paradas[i], loc = Math.round(p[1] / 100 * 4096);
+      var c = new ActionDescriptor(); c.putObject(s("color"), s("RGBColor"), rgbDesc(p[0])); c.putEnumerated(s("type"), s("colorStopType"), s("userStop")); c.putInteger(s("location"), loc); c.putInteger(s("midpoint"), 50); cl.putObject(s("colorStop"), c);
+      var t = new ActionDescriptor(); t.putUnitDouble(s("opacity"), s("percentUnit"), 100); t.putInteger(s("location"), loc); t.putInteger(s("midpoint"), 50); tl.putObject(s("transferSpec"), t); }
+    gr.putList(s("colors"), cl); gr.putList(s("transparency"), tl); gm.putObject(s("gradient"), s("gradientClassEvent"), gr);
+    u.putObject(s("type"), s("gradientMapClass"), gm); a.putObject(s("using"), s("adjustmentLayer"), u); executeAction(s("make"), a, DialogModes.NO);
+    var l = D.activeLayer; nomeia(l, nome || "MAPA DE DEGRADE"); Y.misturar(l, modo, op); return entra(l, g);
+  };
+  // Desfoque gaussiano em smart object (vira filtro inteligente, editável). Bom para fundo com profundidade.
+  Y.desfocar = function (l, raio) { D.activeLayer = l; l.applyGaussianBlur(raio); return l; };
+  // Vinheta: degradê radial escuro nas bordas (camada de preenchimento editável)
+  Y.vinheta = function (hex, op, g) {
+    var a = new ActionDescriptor(), r = new ActionReference(); r.putClass(s("contentLayer")); a.putReference(s("null"), r);
+    var u = new ActionDescriptor(), gd = new ActionDescriptor(); gd.putEnumerated(s("type"), s("gradientType"), s("radial")); gd.putUnitDouble(s("scale"), s("percentUnit"), 150);
+    var gr = new ActionDescriptor(); gr.putString(s("name"), "vinheta"); gr.putEnumerated(s("gradientForm"), s("gradientForm"), s("customStops")); gr.putDouble(s("interfaceIconFrameDimmed"), 4096);
+    var cl = new ActionList(), tl = new ActionList(), pp = [[0, 0], [55, 0], [100, 100]];
+    for (var i = 0; i < pp.length; i++) { var loc = Math.round(pp[i][0] / 100 * 4096);
+      var c = new ActionDescriptor(); c.putObject(s("color"), s("RGBColor"), rgbDesc(hex || "#000000")); c.putEnumerated(s("type"), s("colorStopType"), s("userStop")); c.putInteger(s("location"), loc); c.putInteger(s("midpoint"), 50); cl.putObject(s("colorStop"), c);
+      var t = new ActionDescriptor(); t.putUnitDouble(s("opacity"), s("percentUnit"), pp[i][1]); t.putInteger(s("location"), loc); t.putInteger(s("midpoint"), 50); tl.putObject(s("transferSpec"), t); }
+    gr.putList(s("colors"), cl); gr.putList(s("transparency"), tl); gd.putObject(s("gradient"), s("gradientClassEvent"), gr);
+    u.putObject(s("type"), s("gradientLayer"), gd); a.putObject(s("using"), s("contentLayer"), u); executeAction(s("make"), a, DialogModes.NO);
+    var l = D.activeLayer; l.name = "VINHETA"; l.opacity = op === undefined ? 70 : op; return entra(l, g);
+  };
+  // Integra a pessoa ao ambiente: cor do ambiente na pele (Luz suave) + luz de borda (Tela) recortadas na foto.
+  // lado: "esq"|"dir" = de onde vem a luz de borda.
+  Y.integrar = function (foto, g, corAmbiente, corLuz, lado) {
+    var amb = Y.solido(corAmbiente, "COR DO AMBIENTE (" + foto.name + ")", g, "softLight", 45); amb.move(foto, ElementPlacement.PLACEBEFORE); Y.recorte(amb);
+    var bb = b(foto), ang = lado === "esq" ? 0 : 180;
+    var luz = Y.degrade([[corLuz, 0, 100], [corLuz, 35, 0]], ang, "LUZ DE BORDA (" + foto.name + ")", g, "screen", 55); luz.move(amb, ElementPlacement.PLACEBEFORE); Y.recorte(luz);
+    return foto;
+  };
+  // Brilho radial suave (luz atrás do objeto/pessoa): elipse com difusão grande em camada própria.
+  Y.brilho = function (cx, cy, rx, ry, hex, op, g, modo) {
+    var l = D.artLayers.add(); l.name = "BRILHO " + hex;
+    D.selection.select([[cx - rx, cy - ry], [cx + rx, cy - ry], [cx + rx, cy + ry], [cx - rx, cy + ry]], SelectionType.REPLACE, 0, true);
+    var a = new ActionDescriptor(); var r = new ActionReference(); r.putProperty(s("channel"), s("selection")); a.putReference(s("null"), r);
+    var e = new ActionDescriptor(); e.putUnitDouble(s("top"), s("pixelsUnit"), cy - ry); e.putUnitDouble(s("left"), s("pixelsUnit"), cx - rx); e.putUnitDouble(s("bottom"), s("pixelsUnit"), cy + ry); e.putUnitDouble(s("right"), s("pixelsUnit"), cx + rx);
+    a.putObject(s("to"), s("ellipse"), e); a.putBoolean(s("antiAlias"), true); executeAction(s("set"), a, DialogModes.NO);
+    D.selection.feather(Math.min(rx, ry) * 0.6); D.selection.fill(rgb(hex)); D.selection.deselect();
+    l.blendMode = MODOS[modo || "screen"]; l.opacity = op === undefined ? 80 : op; return entra(l, g);
+  };
+  // Partículas de brilho (pontinhos com glow) numa área, semente fixa para repetir igual.
+  Y.particulas = function (n, area, hex, g, semente) {
+    var l = D.artLayers.add(); l.name = "PARTICULAS"; var sd = semente || 7;
+    function rnd() { sd = (sd * 9301 + 49297) % 233280; return sd / 233280; }
+    for (var i = 0; i < n; i++) {
+      var x = area.x + rnd() * area.w, y = area.y + rnd() * area.h, r = 1.2 + rnd() * 2.8;
+      D.selection.select([[x - r, y - r], [x + r, y - r], [x + r, y + r], [x - r, y + r]], i ? SelectionType.EXTEND : SelectionType.REPLACE, 0, true);
+    }
+    D.selection.fill(rgb(hex)); D.selection.deselect();
+    Y.efeitos(l, { brilho: { cor: hex, op: 75, tam: 10 } }); l.opacity = 70; return entra(l, g);
   };
   Y.recorte = function (l) { D.activeLayer = l; var a = new ActionDescriptor(); a.putReference(s("null"), refAtiva()); executeAction(s("groupEvent"), a, DialogModes.NO); return l; };
 
