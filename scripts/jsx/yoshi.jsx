@@ -133,6 +133,18 @@ var Y = (function () {
   };
   // "Pessoa na frente do título": duplica a foto já recortada para outro grupo (acima do texto).
   Y.duplicarPara = function (l, nome, g) { var c = l.duplicate(); c.name = nome; return entra(c, g); };
+  // Corta seco a camada abaixo de y (na máscara): recorte de pessoa atrás de púlpito/mesa leva o resto do corpo
+  // sem o móvel e sobra um pedaço solto. Ponha y logo abaixo das mãos, de preferência escondido atrás do título.
+  Y.cortarAbaixo = function (l, y, x1, x2) {
+    var W_ = D.width.as("px"), H_ = D.height.as("px"); x1 = x1 || 0; x2 = x2 || W_;
+    D.activeLayer = l; var tem = false;
+    try { var r0 = new ActionReference(); r0.putEnumerated(s("layer"), s("ordinal"), s("targetEnum")); tem = executeActionGet(r0).getBoolean(s("hasUserMask")); } catch (e) {}
+    if (!tem) { var m = new ActionDescriptor(); m.putClass(s("new"), s("channel")); var r = new ActionReference(); r.putEnumerated(s("channel"), s("channel"), s("mask")); m.putReference(s("at"), r); m.putEnumerated(s("using"), s("userMaskEnabled"), s("revealAll")); executeAction(s("make"), m, DialogModes.NO); }
+    var a = new ActionDescriptor(), rm = new ActionReference(); rm.putEnumerated(s("channel"), s("channel"), s("mask")); a.putReference(s("null"), rm); a.putBoolean(s("makeVisible"), false); executeAction(s("select"), a, DialogModes.NO);
+    D.selection.select([[x1, y], [x2, y], [x2, H_], [x1, H_]]); D.selection.fill(rgb("#000000")); D.selection.deselect();
+    var b2 = new ActionDescriptor(), rc = new ActionReference(); rc.putEnumerated(s("channel"), s("channel"), s("RGB")); b2.putReference(s("null"), rc); executeAction(s("select"), b2, DialogModes.NO);
+    return l;
+  };
   // Esconde a parte de baixo de uma camada com máscara de degradê (para a foto "sumir" no fundo). de/ate em px de y.
   Y.sumirEmbaixo = function (l, yInicio, yFim) {
     D.activeLayer = l;

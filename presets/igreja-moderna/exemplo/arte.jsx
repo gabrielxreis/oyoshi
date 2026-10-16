@@ -2,6 +2,7 @@
 // Variáveis: FOTO (pessoa, de preferência meio corpo ou corpo inteiro), SAIDA (pasta).
 // python3 scripts/montar.py presets/igreja-moderna/exemplo/arte.jsx FOTO=/caminho/pastor.jpg SAIDA=/pasta
 var W = 1080, H = 1350;
+if (typeof CORTE === "undefined") var CORTE = "";
 Y.doc(W, H, "igreja-moderna-dmngo");
 
 var gFundo = Y.grupo("FUNDO");
@@ -16,6 +17,7 @@ Y.recorte(gMold.layers[0]);
 var gPes = Y.grupo("PESSOAS");
 var p = Y.colocar(FOTO, "PREGADOR", gPes, { x: 40, y: -150, w: 1000, h: 1500 }, "altura", "topo");
 Y.recortar(p);
+Y.cortarAbaixo(p, CORTE ? Number(CORTE) : 968);   // foto atrás de púlpito: o recorte deixava o paletó solto à esquerda; corta abaixo das mãos, atrás do título
 Y.efeitos(p, { sombra: { cor: "#000000", op: 55, dist: 0, desfoque: 70 } });
 
 var gDeg = Y.grupo("DEGRADE");

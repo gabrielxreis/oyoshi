@@ -253,6 +253,24 @@ def ui_instagram(W, H):
             [round(W * 0.40), round(H * 0.965), round(W * 0.60), H]]
 
 
+def juntar_mesma_linha(linhas):
+    """O Vision às vezes separa um pedaço da linha ("PRESENCIAL" e "+" a 0 px): mesma altura de meio, vão menor que
+    a altura da letra -> uma linha só (senão o "+" vira camada própria e o bloco de baixo perde a 1ª linha certa)."""
+    out = []
+    for l in sorted(linhas, key=lambda o: (o["y"], o["x"])):
+        p_ = next((o for o in out if abs((o["y"] + o["h"] / 2) - (l["y"] + l["h"] / 2)) < 0.35 * max(o["h"], l["h"])
+                   and 0 <= l["x"] - (o["x"] + o["w"]) < 0.8 * max(o["h"], l["h"]) and abs(o.get("angulo", 0) - l.get("angulo", 0)) < 2), None)
+        if p_:
+            off = len(p_["texto"]) + 1   # índice de caractere das palavras do pedaço passa a contar do início da linha juntada
+            l = dict(l, palavras=[dict(w_, i=w_.get("i", 0) + off) for w_ in (l.get("palavras") or [])])
+            p_["texto"] = p_["texto"] + " " + l["texto"]; x2 = l["x"] + l["w"]; y1 = min(p_["y"], l["y"]); y2 = max(p_["y"] + p_["h"], l["y"] + l["h"])
+            p_["w"] = x2 - p_["x"]; p_["y"] = y1; p_["h"] = y2 - y1; p_["conf"] = min(p_["conf"], l["conf"])
+            p_["palavras"] = (p_.get("palavras") or []) + (l.get("palavras") or [])
+        else:
+            out.append(dict(l))
+    return sorted(out, key=lambda o: (o["y"], o["x"]))
+
+
 def juntar_blocos(linhas, k, pequeno):
     """Linhas PEQUENAS empilhadas e alinhadas à esquerda (\"Arraste / para o / lado\") viram um bloco só (\r entre
     elas): medidas separadas a 17 px uma da outra se atrapalham no ciclo."""
@@ -337,7 +355,7 @@ def main():
     ap.add_argument("--nota-min", type=float, default=0.35, help="abaixo disso a linha fica como imagem (logo)")
     a = ap.parse_args(); os.makedirs(a.pasta, exist_ok=True)
     im = Image.open(a.ref).convert("RGB"); W0, H0 = im.size; k = a.largura / W0; H = round(H0 * k)
-    linhas = juntar_blocos(json.loads(roda(os.path.join(AQUI, "swift", "ocr"), a.ref)), k, a.pequeno)
+    linhas = juntar_blocos(juntar_mesma_linha(json.loads(roda(os.path.join(AQUI, "swift", "ocr"), a.ref))), k, a.pequeno)
     itens, camadas, caixas_mt = [], [], []
     # passada prévia: caixas marca-texto de TODAS as linhas (a cor da caixa vira fundo em qualquer linha vizinha)
     todas_caixas = []

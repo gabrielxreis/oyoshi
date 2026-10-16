@@ -103,7 +103,7 @@ O Yoshi foi treinado remontando posts reais pixel a pixel. As ferramentas que sa
 
 <img src="docs/previews/reconstrucao.jpg" width="720" alt="Imagem chapada à esquerda, PSD reconstruído pelo Yoshi à direita">
 
-*À esquerda, o JPG achatado. À direita, o PSD que o Yoshi reconstruiu sozinho: fundo limpo, 10 camadas de texto vivo com a fonte reconhecida (Unbounded, Space Mono, Ivy Presto) e posição conferida em até 1 px. Único ajuste manual: `--corrigir "/ IGREJA=/IGREJA;•=·"` para dois erros de leitura do OCR. Limite visível: a ponta dos dedos sobre o "G" ficou borrada pelo preenchimento do fundo.*
+*À esquerda, o JPG achatado. À direita, o PSD que o Yoshi reconstruiu sozinho: fundo limpo, 9 camadas de texto vivo com a fonte reconhecida (Unbounded, Space Mono, Ivy Presto) e posição conferida em até 1 px. Único ajuste manual: `--corrigir "/ IGREJA=/IGREJA;•=·;IVNC=IVN©"` para três erros de leitura do OCR. Limite visível: a ponta dos dedos sobre o "G" ficou borrada pelo preenchimento do fundo.*
 
 - **Imagem chapada -> PSD editável** (`reconstruir.py`): OCR nativo do macOS acha cada linha e palavra; o fundo vira "fundo limpo" (texto apagado com preenchimento sensível ao conteúdo, sem crédito); cada linha volta como texto vivo com a fonte reconhecida, negrito e cor de destaque detectados por palavra, caixa marca-texto como forma editável, interface do Instagram (seta, bolinhas) removida.
 - **Ciclo idêntico** (`ciclo.py`): mede a referência, monta, mede o próprio resultado com a mesma régua e corrige até o erro ficar em 1 px.
