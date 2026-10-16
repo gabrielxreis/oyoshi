@@ -40,3 +40,8 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - `sobrepor.py`: a captura do Instagram (536-980 px) ampliada para 1080 fica borrada e quase sem bordas; a nota da AGM dava 0,14 com o texto no lugar. Agora o remake passa pela mesma resolução da referência + desfoque leve antes de comparar (AGM 0,69, Calverstone 0,76).
 - `medir_texto.py` devolve `cor` de cada linha (mediana do miolo das letras, sem a borda antisserrilhada). AGM: creme #F1EEE6 e ouro #B18B38 (eu chutava #EEE6D6/#E3A93C).
 - AGM "não é a câmera": BebasNeuePro-Bold confirmada na prova de fogo (0,713 x Bebas Neue Bold 0,696); título em 2 camadas medidas.
+
+## 2026-10-16 03h (e): objeto no lugar certo
+- `medir_objeto.py --ps "the camera"`: abre a referência no Photoshop, seleção por IA e devolve a caixa (258,258,561x579 na AGM; o limiar de cor errava porque a câmera tem partes escuras e um brilho em volta).
+- `Y.caixaVisivel` / `Y.encaixarVisivel`: layer.bounds ignora a máscara, então o objeto recortado "media" a foto inteira. Agora mede pela máscara carregada como seleção. Câmera do remake: x 260 / largura 557 / centro 548 contra 258 / 561 / 547 na referência.
+- SKILL.md ganhou o "Ciclo idêntico" (medir > encaixar > sobrepor) como passo obrigatório.

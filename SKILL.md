@@ -58,6 +58,13 @@ PS.js("app.activeDocument.activeLayer.name")               # 2) ExtendScript (DO
 
 **Remontar do Instagram real** (o melhor treino): capturar o post (Chrome logado: abrir o post e dar zoom na imagem com `save_to_disk`), identificar fontes, remontar e comparar LADO A LADO (`comparar.py`-style: as duas imagens na mesma altura) até a tipografia, a escala e as cores baterem. Foto: escolher pela COMPOSIÇÃO (sujeito centralizado, espaço para texto); prévia do Magnific é URL pública, conferir antes de pagar. Foto de estúdio recortada sobre outro ambiente fica artificial.
 
+**Ciclo "idêntico" (medir > encaixar > sobrepor), obrigatório em remake e em arte a partir de referência:**
+1. **Texto:** `medir_texto.py ref.png --cor "#FFFFFF,#3ED6A6" --regiao ...` dá a caixa de cada linha (`x,y,w,h`), o corpo da maiúscula (`cy,ch`) e a `cor` real. Uma camada por linha (ou por trecho com estilo diferente), cada uma com `alvo: {x,y,w,h,cy,ch}`; caixa alta encaixa pelo H (acento e cedilha não atrapalham); bloco de várias linhas usa `passo` (entrelinha medida).
+2. **Objeto/pessoa:** `medir_objeto.py ref.png --ps "the camera"` (seleção por IA do Photoshop) dá a caixa; no arte.jsx, depois do `Y.recortar`, `Y.encaixarVisivel(l, caixa, "conter")` (mede pela máscara, não pela foto inteira).
+3. **Caixas e logos:** medir a caixa colorida direto pela cor (marca-texto laranja etc.) e desenhar com `Y.retangulo`; logo PNG passa antes por `aparar.py`.
+4. **Conferir:** `sobrepor.py ref.png remake.png saida.png --regiao ...` (nota de bordas na resolução da referência) e medir o remake com os mesmos comandos: diferença de 1-2 px é o limite de uma captura de ~550 px.
+5. **Fonte em dúvida:** `provar_fontes.py` (prova de fogo no Photoshop).
+
 Lições das primeiras artes (16/10/2026): degradê de fusão alto demais esconde a foto (parar em ~35-55%); quadros de glitch em Diferença precisam cair SOBRE a pessoa (fora dela a cópia é transparente); "Selecionar assunto" tira objetos (púlpito, fundo) junto: bom para pregador; setas e símbolos (→ ↓) às vezes não existem na fonte da marca: usar uma `faixa` com Inter só no símbolo; texto gigante de fundo na cor muito próxima do fundo some (subir 1-2 tons); fonte variável com eixo óptico (DM Sans) pode não aparecer até reiniciar o Photoshop (usar a parecida instalada); preto e branco de foto = Preenchimento cinza em modo Cor recortado + curvas.
 
 ## Presets (ler antes de desenhar)

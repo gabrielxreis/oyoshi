@@ -75,6 +75,24 @@ var Y = (function () {
     if (alinhar === "base") dy = c.y + c.h - bb.h - bb.y; else if (alinhar === "topo") dy = c.y - bb.y; else dy = c.y + (c.h - bb.h) / 2 - bb.y;
     l.translate(dx, dy); return l;
   };
+  // Caixa do que APARECE da camada (máscara aplicada): layer.bounds ignora a máscara, então um objeto recortado
+  // "mede" a foto inteira. Carrega a máscara (ou a transparência) como seleção e lê a caixa.
+  Y.caixaVisivel = function (l) {
+    D.activeLayer = l; var a = new ActionDescriptor(), r = new ActionReference(); r.putProperty(s("channel"), s("selection")); a.putReference(s("null"), r);
+    var c = new ActionReference();
+    try { c.putEnumerated(s("channel"), s("channel"), s("mask")); a.putReference(s("to"), c); executeAction(s("set"), a, DialogModes.NO); }
+    catch (e) { a = new ActionDescriptor(); a.putReference(s("null"), r); c = new ActionReference(); c.putEnumerated(s("channel"), s("channel"), s("transparencyEnum")); a.putReference(s("to"), c); executeAction(s("set"), a, DialogModes.NO); }
+    var bb = D.selection.bounds; D.selection.deselect();
+    var x = bb[0].as("px"), y = bb[1].as("px"); return { x: x, y: y, w: bb[2].as("px") - x, h: bb[3].as("px") - y };
+  };
+  // Encaixa pelo que aparece (objeto recortado) numa caixa medida na referência (medir_objeto.py --ps).
+  Y.encaixarVisivel = function (l, c, ajuste, alinhar) {
+    var v = Y.caixaVisivel(l), sx = c.w / v.w, sy = c.h / v.h, e;
+    if (ajuste === "largura") e = sx; else if (ajuste === "altura") e = sy; else if (ajuste === "cobrir") e = Math.max(sx, sy); else e = Math.min(sx, sy);
+    l.resize(e * 100, e * 100, AnchorPosition.MIDDLECENTER); v = Y.caixaVisivel(l);
+    var dy = alinhar === "base" ? c.y + c.h - v.h - v.y : (alinhar === "topo" ? c.y - v.y : c.y + (c.h - v.h) / 2 - v.y);
+    l.translate(c.x + (c.w - v.w) / 2 - v.x, dy); return l;
+  };
   // Recorta a pessoa/objeto principal (Selecionar assunto, IA local) e cria máscara na camada.
   Y.recortar = function (l) {
     D.activeLayer = l; var a = new ActionDescriptor(); a.putBoolean(s("sampleAllLayers"), false); executeAction(s("autoCutout"), a, DialogModes.NO);
