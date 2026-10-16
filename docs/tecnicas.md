@@ -31,6 +31,11 @@ no PNG, ⚠️ funciona com ressalva.
 | **Luz de recorte** | `Y.luzRecorte(objeto, "#7FD8FF", -10, -4, 95)`: faixa do lado da luz, recortada no objeto. Só aparece com sujeito escurecido antes (Y.integrar/curvas) | ✅ |
 | Efeitos novos no `Y.efeitos` | `brilhoInterno`, `sombraInterna`, `chanfro`, `degrade`, `cetim` (chaves do dicionário do binário) | ✅ |
 
+| **Template com troca de conteúdo** | `Y.trocarConteudo(camadaSO, foto)` mantém moldura, efeitos e máscara; com `scripts/lote.py arte.jsx dados.json` gera série/carrossel/variações A/B | ✅ |
+| **Adaptar formato (4:5 -> 9:16)** | `Y.expandirFundo(foto)`: Preenchimento Sensível ao Conteúdo (local, SEM crédito generativo) nas áreas vazias | ✅ |
+| **Separação de frequência + esquivar/queimar** | `Y.separacaoFrequencia(foto, 6)`: BAIXA (desfoque), ALTA (Aplicar Imagem subtrair, escala 2, desloc. 128, Luz Linear), cinza 50% em Luz Suave. Reconstrói a foto (diferença média 0,35) | ✅ |
+| **Dupla exposição** | `Y.duplaExposicao(pessoa, paisagem)`: pessoa P&B contrastada sobre fundo claro, paisagem em MULTIPLICAÇÃO recortada, rosto limpo por máscara elíptica esfumada. Tela (screen) estoura com pessoa clara | ✅ |
+
 Painel do lote 2: `_laboratorio/painel-tecnicas-2.png`. Bug resolvido: preencher com transparência travada dá "parâmetros de Preencher inválidos"; usar `selection.fill(cor, NORMAL, 100, true)` (4º argumento = preservar transparência).
 
 ## Exemplo completo

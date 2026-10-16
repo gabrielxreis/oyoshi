@@ -64,3 +64,8 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - Testadas e incorporadas ao Y: Mesclar se, glitch por restrição de canal, LUT por arquivo, mapa de deslocamento, texto em arco.
 - Warp personalizado: descobri o formato lendo de volta um warp Arco (`meshPoints`, não `points` como diz a terminologia), mas o resultado na tela depende da origem da camada. Mockup ficou com `perspectiva.py` (homografia exata em Python) e saiu perfeito: arte da Bora na tela do celular, dedos por cima.
 - Ver `docs/tecnicas.md`.
+
+## 2026-10-16 04h (b): lotes 2 e 3 de técnicas
+- Lote 2 (efeitos de design): sombra longa, extrusão 3D, neon, cromado, texto vazado, retícula, sombra de contato, luz de recorte. `Y.efeitos` ganhou chanfro, brilho interno, sombra interna, degradê, cetim (chaves tiradas do dicionário do binário). Painel em `_laboratorio/painel-tecnicas-2.png`.
+- Lote 3 (produção): trocar conteúdo de objeto inteligente + `lote.py` (série de posts a partir de um JSON), expandir fundo com sensível ao conteúdo (4:5 -> 9:16 sem crédito), separação de frequência + esquivar/queimar, dupla exposição.
+- Lição da dupla exposição: Tela só funciona com sujeito escuro; com jaleco claro tudo estoura. Receita certa = Multiplicação + rosto preservado por máscara esfumada.

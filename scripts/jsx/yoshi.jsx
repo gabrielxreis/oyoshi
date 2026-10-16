@@ -682,6 +682,50 @@ var Y = (function () {
     D.selection.translateBoundary(UnitValue(-(dx || -6), "px"), UnitValue(-(dy || -4), "px")); D.selection.clear(); D.selection.deselect();
     l.applyGaussianBlur(2.5); l.blendMode = BlendMode.SCREEN; l.opacity = op || 85; l.move(obj, ElementPlacement.PLACEBEFORE); Y.recorte(l); return l;
   };
+  // ---------- produção e retoque (lote 3, 16/10/2026) ----------
+  // Troca o conteúdo de um objeto inteligente (template de marca: mesma moldura/efeitos, foto ou arte nova).
+  Y.trocarConteudo = function (l, arquivo) { D.activeLayer = l; var a = new ActionDescriptor(); a.putPath(s("null"), new File(arquivo));
+    executeAction(s("placedLayerReplaceContents"), a, DialogModes.NO); return D.activeLayer; };
+  // Expande o fundo da foto para cobrir o documento inteiro com Preenchimento Sensível ao Conteúdo (LOCAL, sem crédito
+  // generativo): adaptar feed 4:5 -> story 9:16 sem esticar. Cria cópia rasterizada "FUNDO EXPANDIDO" abaixo da foto.
+  Y.expandirFundo = function (foto, margem) {
+    var c = foto.duplicate(); c = rasterizar(c); c.name = "FUNDO EXPANDIDO"; c.move(foto, ElementPlacement.PLACEAFTER); D.activeLayer = c;
+    var a = new ActionDescriptor(), r = new ActionReference(); r.putProperty(s("channel"), s("selection")); a.putReference(s("null"), r);
+    var t2 = new ActionReference(); t2.putEnumerated(s("channel"), s("channel"), s("transparencyEnum")); a.putReference(s("to"), t2); executeAction(s("set"), a, DialogModes.NO);
+    D.selection.invert(); D.selection.expand(UnitValue(margem || 6, "px"));
+    var f = new ActionDescriptor(); f.putEnumerated(s("using"), s("fillContents"), s("contentAware")); f.putBoolean(s("contentAwareColorAdaptationFill"), true);
+    f.putUnitDouble(s("opacity"), s("percentUnit"), 100); f.putEnumerated(s("mode"), s("blendMode"), s("normal")); executeAction(s("fill"), f, DialogModes.NO);
+    D.selection.deselect(); return c;
+  };
+  // Separação de frequência (retoque de pele): BAIXA = cor/tom (desfoque), ALTA = textura (Aplicar Imagem: subtrair,
+  // escala 2, deslocamento 128, modo Luz Linear). Mais uma camada cinza 50% em Luz Suave para esquivar/queimar.
+  Y.separacaoFrequencia = function (foto, raio, g) {
+    var base = foto.kind === LayerKind.SMARTOBJECT ? rasterizar(foto.duplicate()) : foto.duplicate();
+    var baixa = base; baixa.name = "BAIXA FREQUENCIA (tom)"; baixa.applyGaussianBlur(raio || 6);
+    var alta = rasterizar(foto.duplicate()); alta.name = "ALTA FREQUENCIA (textura)"; alta.move(baixa, ElementPlacement.PLACEBEFORE); D.activeLayer = alta;
+    var calc = new ActionDescriptor(), rr = new ActionReference(); rr.putEnumerated(s("channel"), s("channel"), s("RGB")); rr.putName(s("layer"), baixa.name);
+    calc.putReference(s("to"), rr); calc.putEnumerated(s("calculation"), s("calculationType"), s("subtract")); calc.putDouble(s("scale"), 2); calc.putInteger(s("offset"), 128);
+    var a = new ActionDescriptor(); a.putObject(s("with"), s("calculation"), calc); executeAction(s("applyImageEvent"), a, DialogModes.NO);
+    alta.blendMode = BlendMode.LINEARLIGHT;
+    var db = D.artLayers.add(); db.name = "ESQUIVAR E QUEIMAR (pincel branco/preto 5-10%)"; D.selection.selectAll(); D.selection.fill(rgb("#808080")); D.selection.deselect();
+    db.blendMode = BlendMode.SOFTLIGHT; db.move(alta, ElementPlacement.PLACEBEFORE);
+    return { baixa: baixa, alta: alta, db: db };
+  };
+  // Dupla exposição (receita clássica): pessoa recortada em P&B contrastada sobre fundo claro; paisagem recortada na
+  // pessoa em MULTIPLICAÇÃO; o rosto fica limpo por uma máscara elíptica esfumada (rosto = metade de cima da caixa).
+  // rosto opcional {x,y,w,h}; sem ele estima pelo topo da silhueta. Tela (screen) só serve com pessoa escura.
+  Y.duplaExposicao = function (pessoa, paisagem, op, rosto, modo) {
+    paisagem.move(pessoa, ElementPlacement.PLACEBEFORE); Y.recorte(paisagem); paisagem.blendMode = modo === "tela" ? BlendMode.SCREEN : BlendMode.MULTIPLY; paisagem.opacity = op || 100;
+    var v = Y.caixaVisivel(pessoa), r = rosto || { x: v.x + v.w * 0.25, y: v.y, w: v.w * 0.5, h: v.h * 0.32 };
+    D.selection.select([[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]]);
+    var e = new ActionDescriptor(); var rr = new ActionReference(); rr.putProperty(s("channel"), s("selection")); e.putReference(s("null"), rr);
+    var el = new ActionDescriptor(); el.putUnitDouble(s("top"), s("pixelsUnit"), r.y); el.putUnitDouble(s("left"), s("pixelsUnit"), r.x); el.putUnitDouble(s("bottom"), s("pixelsUnit"), r.y + r.h); el.putUnitDouble(s("right"), s("pixelsUnit"), r.x + r.w);
+    e.putObject(s("to"), s("ellipse"), el); e.putBoolean(s("antiAlias"), true); executeAction(s("set"), e, DialogModes.NO);
+    D.selection.feather(UnitValue(Math.round(r.w * 0.35), "px"));
+    D.activeLayer = paisagem; var m = new ActionDescriptor(); m.putClass(s("new"), s("channel")); var mr = new ActionReference(); mr.putEnumerated(s("channel"), s("channel"), s("mask"));
+    m.putReference(s("at"), mr); m.putEnumerated(s("using"), s("userMaskEnabled"), s("hideSelection")); executeAction(s("make"), m, DialogModes.NO); D.selection.deselect();
+    return paisagem;
+  };
   Y.D = function () { return D; };
   // Lê um JSON (alvos.json do ciclo.py, preset.json da marca). ExtendScript não tem JSON nativo confiável.
   Y.lerJSON = function (caminho) { var f = new File(caminho); f.encoding = "UTF-8"; if (!f.exists) return {}; f.open("r"); var t = f.read(); f.close(); return eval("(" + t + ")"); };
