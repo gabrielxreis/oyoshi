@@ -74,3 +74,8 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - `jsx/para_story.jsx`: feed -> story 9:16 (fundo expandido com sensível ao conteúdo, granulação esticada, rodapé fora da caixa de mensagem). Calverstone saiu pronta para publicar.
 - `conferir_arte.py`: contraste WCAG do texto contra o fundo REAL, zona segura, tamanho mínimo, margens, centro (só em texto centralizado). Já pegou o "01/05" da Bora com 3,2:1.
 - Pranchetas: o DOM não cria texto dentro de prancheta e o evento AM de converter grupo fica indisponível; as ferramentas nativas do agente resolvem. Bug achado no caminho: variável global `lista` num script sobrescrevia a função `lista()` do desc2json e quebrava toda resposta com lista ("Object não é uma função"); funções internas agora têm prefixo `_d2j`.
+
+## 2026-10-16 04h (d): ler o sistema de design da referência; foto não comprada
+- `analisar_ref.py`: paleta k-médias em Lab com área e papel 60/30/10, grade de texto agrupada por alinhamento (Bora: título à esquerda em 64 + apoio centralizado; Calverstone: tudo centralizado em 542), ritmo vertical e escala tipográfica; `--comparar` dá o ΔE do remake (Bora: preto ok 1,7; cinzas da foto 9-14 = foto diferente).
+- Radiologia (Calverstone): procurei no banco (Freepik) uma foto equivalente; nenhuma prévia bate (a do post é de costas, cabelo escuro, raio-X erguido). NÃO comprei (40 créditos por uma foto diferente). Fica para perguntar ao Gabriel se ele tem a foto original ou se quer gerar por IA.
+- Tentei busca por similaridade de imagem (imageBase64): rejeitada, a string longa se corrompe; usar busca por texto + conferência das prévias públicas.
