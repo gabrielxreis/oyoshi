@@ -194,8 +194,9 @@ def faixas_palavras(im, linha, cor_linha, fonte_neg):
     ok = [x for x in info if x]
     # negrito: espessura bem acima da mais fina da linha (linha mista); calibrado: Montserrat Bold 0,11+, Regular <= 0,03
     ds = sorted(x[0] for x in ok); corte = None
-    if len(ds) > 1 and ds[-1] > 0.07 and ds[-1] > 3 * ds[0] + 0.03:
-        corte = max(0.06, (ds[0] + ds[-1]) / 2.5)
+    # negrito: sobrevivência à erosão > 0,12 (calibrado: Montserrat Bold 0,15-0,30; Regular <= 0,09 mesmo com maiúscula)
+    if len(ds) > 1 and ds[-1] > 0.12 and ds[0] < 0.12:
+        corte = 0.12
     # cor-base = a cor da MAIORIA das palavras (pesada pela largura), não a mediana da linha (o vermelho puxava)
     larguras = [w["w"] for w, x in zip(pal, info) if x]; cores = [x[1] for x in ok]
     def grupo(c): return sum(lw for lw, o in zip(larguras, cores) if np.sqrt(((o - c) ** 2).sum()) < 60)
@@ -381,6 +382,10 @@ def main():
         js.append(f"Y.texto({{ txt: {json.dumps(c['txt'], ensure_ascii=False)}, nome: {json.dumps(c['nome'], ensure_ascii=False)}, fonte: {json.dumps(c['fonte'])}, px: 40, cor: {json.dumps(c['cor'])}, tracking: 0{fxs}, alvo: {c.get('nome_alvo') or 'ALV[' + json.dumps(c['nome'], ensure_ascii=False) + ']'} }}, gT);")
     js += ["Y.salvar(SAIDA + \"/editavel.psd\", SAIDA + \"/editavel.png\");", "\"ok\";"]
     open(os.path.join(a.pasta, "arte.jsx"), "w").write("\n".join(js) + "\n")
+    json.dump([{"nome": c["nome"], "fonte": c["fonte"], "cor": c["cor"],
+                "negrito": next((f["fonte"] for f in c["faixas"] if f.get("fonte")), None) or a.fonte_negrito or None,
+                "destaque": next((f["cor"] for f in c["faixas"] if f.get("cor")), None)} for c in camadas],
+              open(os.path.join(a.pasta, "camadas.json"), "w"), ensure_ascii=False, indent=1)
     print("arte.jsx e medidas.json em", a.pasta)
     if not a.sem_ciclo:
         print(roda(sys.executable, os.path.join(AQUI, "ciclo.py"), a.pasta, timeout=3600))

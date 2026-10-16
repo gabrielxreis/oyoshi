@@ -222,7 +222,7 @@ var Y = (function () {
   Y.faixas = function (l, fx) {
     D.activeLayer = l;
     var tk = executeActionGet(refAtiva()).getObjectValue(s("textKey")), base = tk.getList(s("textStyleRange")).getObjectValue(0).getObjectValue(s("textStyle"));
-    var total = l.textItem.contents.length, nl = new ActionList(), marc = [], i, k;
+    var total = l.textItem.contents.length, nl = new ActionList(), marc = [], i, k, fonteBase = l.textItem.font;
     // preenche os buracos entre faixas com o estilo base
     var lista = [], pos = 0; fx.sort(function (a, c) { return a.de - c.de; });
     for (i = 0; i < fx.length; i++) { if (fx[i].de > pos) lista.push({ de: pos, ate: fx[i].de }); lista.push(fx[i]); pos = fx[i].ate; }
@@ -235,7 +235,8 @@ var Y = (function () {
         else if (t == DescValueType.DOUBLETYPE) st.putDouble(key, base.getDouble(key)); else if (t == DescValueType.INTEGERTYPE) st.putInteger(key, base.getInteger(key));
         else if (t == DescValueType.BOOLEANTYPE) st.putBoolean(key, base.getBoolean(key)); else if (t == DescValueType.ENUMERATEDTYPE) st.putEnumerated(key, base.getEnumerationType(key), base.getEnumerationValue(key));
         else if (t == DescValueType.OBJECTTYPE) st.putObject(key, base.getObjectType(key), base.getObjectValue(key)); } catch (e) {} }
-      if (f.fonte) { st.putString(s("fontPostScriptName"), f.fonte); }
+      // trecho sem fonte própria (vão entre faixas) leva a fonte da camada: sem isso o Photoshop caía na Myriad Pro
+      st.putString(s("fontPostScriptName"), f.fonte || fonteBase);
       if (f.px) { st.putUnitDouble(s("size"), s("pixelsUnit"), f.px); }
       if (f.cor) st.putObject(s("color"), s("RGBColor"), rgbDesc(f.cor));
       if (f.tracking !== undefined) st.putInteger(s("tracking"), f.tracking);
@@ -764,6 +765,20 @@ var Y = (function () {
     D.selection.deselect(); return l;
   };
   Y.mesclar = function (a, b) { var o = {}, k; for (k in a) o[k] = a[k]; for (k in b) o[k] = b[k]; return o; };
+  // Marcação de destaque no texto: **negrito** e {{cor}} -> {txt sem marcas, faixas para o Y.texto}
+  Y.marcacao = function (txt, fonteNeg, corDest) {
+    var out = "", fx = [], i = 0, modo = null, ini = 0;
+    while (i < txt.length) {
+      if (txt.substr(i, 2) === "**" || txt.substr(i, 2) === "{{" || txt.substr(i, 2) === "}}") {
+        var tok = txt.substr(i, 2);
+        if (!modo && tok !== "}}") { modo = tok; ini = out.length; }
+        else if (modo) { var f = { de: ini, ate: out.length };
+          if (modo === "**" && fonteNeg) f.fonte = fonteNeg; if (modo === "{{" && corDest) f.cor = corDest;
+          if (f.fonte || f.cor) fx.push(f); modo = null; }
+        i += 2; continue; }
+      out += txt.charAt(i); i++; }
+    return { txt: out, faixas: fx };
+  };
   Y.D = function () { return D; };
   // Lê um JSON (alvos.json do ciclo.py, preset.json da marca). ExtendScript não tem JSON nativo confiável.
   Y.lerJSON = function (caminho) { var f = new File(caminho); f.encoding = "UTF-8"; if (!f.exists) return {}; f.open("r"); var t = f.read(); f.close(); return eval("(" + t + ")"); };
