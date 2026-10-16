@@ -78,6 +78,7 @@ var Y = (function () {
   // Recorta a pessoa/objeto principal (Selecionar assunto, IA local) e cria máscara na camada.
   Y.recortar = function (l) {
     D.activeLayer = l; var a = new ActionDescriptor(); a.putBoolean(s("sampleAllLayers"), false); executeAction(s("autoCutout"), a, DialogModes.NO);
+    Y.refinarSelecao(Y.REFINO);
     var m = new ActionDescriptor(); m.putClass(s("new"), s("channel")); var r = new ActionReference(); r.putEnumerated(s("channel"), s("channel"), s("mask"));
     m.putReference(s("at"), r); m.putEnumerated(s("using"), s("userMaskEnabled"), s("revealSelection")); executeAction(s("make"), m, DialogModes.NO);
     D.selection.deselect(); return l;
@@ -113,8 +114,21 @@ var Y = (function () {
     nomeia(l, o.nome || o.txt.split("\n")[0].substr(0, 30));
     if (o.faixas) Y.faixas(l, o.faixas);
     if (o.caixa) { ti.position = [o.x, o.y]; }
+    else if (o.alvo) Y.encaixarTexto(l, o.alvo);
     else Y.ancorar(l, o.x, o.y, o.ancora || "tl");
     return entra(l, g);
+  };
+  // Encaixa um texto numa caixa medida na referência (medir_texto.py): ajusta o tamanho até a LARGURA (ou altura,
+  // com alvo.por:"altura") bater e coloca a caixa dos pixels exatamente em x,y. Não distorce a fonte.
+  Y.encaixarTexto = function (l, alvo) {
+    var ti = l.textItem;
+    for (var i = 0; i < 4; i++) {
+      var bb = b(l), f = alvo.por === "altura" ? alvo.h / bb.h : alvo.w / bb.w;
+      if (Math.abs(f - 1) < 0.002) break;
+      ti.size = ti.size.as ? ti.size.as("px") * f : ti.size * f;
+      if (ti.useAutoLeading === false) { try { ti.leading = ti.leading.as("px") * f; } catch (e) {} }
+    }
+    var bb2 = b(l); l.translate(alvo.x - bb2.x, alvo.y - bb2.y); return l;
   };
   Y.ancorar = function (l, x, y, anc) {
     var bb = b(l), tx = x - bb.x, ty = y - bb.y;
@@ -329,15 +343,49 @@ var Y = (function () {
     return true;
   };
   // Máscara a partir da seleção atual (ou cria seleção por prompt antes). inverter: esconde o objeto em vez de mostrar.
-  Y.mascara = function (l, prompt, inverter) {
-    var ok = false;
-    if (prompt) { try { Y.selecionarPorPrompt(l, prompt); ok = true; } catch (e) { $.writeln("prompt falhou, usando Selecionar assunto: " + e); } }
-    if (!ok) { D.activeLayer = l; var a = new ActionDescriptor(); a.putBoolean(s("sampleAllLayers"), false); executeAction(s("autoCutout"), a, DialogModes.NO); }
-    if (inverter) D.selection.invert();
-    D.activeLayer = l;
+  // Máscara por IA. prompt: texto ou lista (inglês funciona melhor); vazio = Selecionar assunto.
+  // o (opcional): {inverter:true, fonte:<camada onde SELECIONAR (ex.: a foto) quando a máscara vai em outra camada>,
+  //                estrito:true (não cai no Selecionar assunto se o prompt falhar), contrair:px, refino:{...}|false}
+  Y.mascara = function (l, prompt, o) {
+    if (o === true) o = { inverter: true }; o = o || {};
+    var fonte = o.fonte || l, ok = false;
+    if (prompt) { try { Y.selecionarPorPrompt(fonte, prompt); ok = true; } catch (e) { if (o.estrito || o.fonte) throw e; $.writeln("prompt falhou, usando Selecionar assunto: " + e); } }
+    if (!ok) { D.activeLayer = fonte; var a = new ActionDescriptor(); a.putBoolean(s("sampleAllLayers"), false); executeAction(s("autoCutout"), a, DialogModes.NO); }
+    if (o.refino !== false) Y.refinarSelecao(o.refino || Y.REFINO);
+    if (o.contrair) D.selection.contract(o.contrair);
+    if (o.inverter) D.selection.invert();
+    D.activeLayer = l; Y.tirarMascara(l);
     var m = new ActionDescriptor(); m.putClass(s("new"), s("channel")); var r = new ActionReference(); r.putEnumerated(s("channel"), s("channel"), s("mask"));
     m.putReference(s("at"), r); m.putEnumerated(s("using"), s("userMaskEnabled"), s("revealSelection")); executeAction(s("make"), m, DialogModes.NO);
     D.selection.deselect(); return l;
+  };
+  // Camadas de preenchimento (degradê, cor sólida) já nascem com máscara: apaga a existente antes de criar outra.
+  Y.tirarMascara = function (l) {
+    D.activeLayer = l; var tem = false;
+    try { var r0 = new ActionReference(); r0.putEnumerated(s("layer"), s("ordinal"), s("targetEnum")); tem = executeActionGet(r0).getBoolean(s("hasUserMask")); } catch (e) {}
+    if (!tem) return l;
+    var sel = null; try { sel = D.selection.bounds; } catch (e) {}
+    if (sel) D.selection.store(D.channels.add()); // guarda a seleção (delete pode limpar)
+    var a = new ActionDescriptor(), r = new ActionReference(); r.putEnumerated(s("channel"), s("channel"), s("mask")); a.putReference(s("null"), r); a.putBoolean(s("apply"), false);
+    executeAction(s("delete"), a, DialogModes.NO);
+    if (sel) { var ch = D.channels[D.channels.length - 1]; D.selection.load(ch); ch.remove(); D.activeLayer = l; }
+    return l;
+  };
+  // Selecionar e Mascarar sobre a seleção atual: borda limpa (sem franja da cor do fundo, sem serrilhado).
+  // r: {raio:3, suavizar:2, difusao:0.6, contraste:15, deslocar:-20 (% para dentro), profundo:true}
+  Y.REFINO = { raio: 3, suavizar: 2, difusao: 0.6, contraste: 15, deslocar: -20, profundo: true };
+  Y.refinarSelecao = function (r) {
+    r = r || Y.REFINO;
+    try {
+      var a = new ActionDescriptor();
+      a.putBoolean(s("smartBrushUseSmartRadius"), true); a.putBoolean(s("smartBrushUseDeepMatte"), r.profundo !== false);
+      a.putUnitDouble(s("smartBrushRadius"), s("pixelsUnit"), r.raio); a.putInteger(s("smartBrushSmooth"), r.suavizar);
+      a.putUnitDouble(s("smartBrushFeather"), s("pixelsUnit"), r.difusao); a.putUnitDouble(s("smartBrushContrast"), s("percentUnit"), r.contraste);
+      a.putUnitDouble(s("smartBrushShiftEdge"), s("percentUnit"), r.deslocar); a.putBoolean(s("sampleAllLayers"), false);
+      a.putBoolean(s("smartBrushDecontaminate"), false);
+      a.putEnumerated(s("refineEdgeOutput"), s("refineEdgeOutput"), s("selectionOutputToSelection"));
+      executeAction(s("smartBrushWorkspace"), a, DialogModes.NO);
+    } catch (e) { $.writeln("refino falhou: " + e); }
   };
   // TEXTO ATRÁS: copia a camada da foto para um grupo ACIMA do texto e deixa só a pessoa/objeto (máscara por IA).
   // prompt vazio = pessoa principal (Selecionar assunto); prompt = objeto ("o celular na mão"). A foto original fica embaixo, inteira.
