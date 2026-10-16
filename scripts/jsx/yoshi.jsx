@@ -168,7 +168,8 @@ var Y = (function () {
       // fonte errada = espaçamento absurdo para caber na largura medida (letras grudadas ou espalhadas): testa as
       // alternativas (o.fontes) e fica com a que pede o espaçamento mais natural
       var trk = l.textItem.tracking;
-      if (o.fontes && o.fontes.length && (trk < -40 || trk > 160)) {
+      // bloco medido pelo corpo da maiúscula (alvo.ch1): tracking largo é do design (créditos espaçados), só letra grudada conta
+      if (o.fontes && o.fontes.length && (trk < -40 || (trk > 160 && !o.alvo.ch1))) {
         var melhor = { f: o.fonte, t: trk };
         for (var q = 0; q < o.fontes.length; q++) { if (o.fontes[q] === o.fonte) continue;
           try { l.textItem.font = o.fontes[q]; l.textItem.tracking = 0; if (o.faixas) Y.faixas(l, o.faixas); Y.encaixarTexto(l, o.alvo);
@@ -198,7 +199,15 @@ var Y = (function () {
       if (sonda) sonda.remove();
       sonda = l.duplicate(); sonda.textItem.contents = letra; return b(sonda);
     }
-    for (i = 0; i < 5; i++) {
+    if (alvo.ch1) {   // bloco de várias linhas em caixa alta: tamanho pelo "H" da 1ª linha, largura pelo tracking (linha mais longa)
+      var sd = l.duplicate(); sd.textItem.contents = "H";
+      for (i = 0; i < 5; i++) { f = alvo.ch1 / b(sd).h; if (Math.abs(f - 1) < 0.002) break; ti.size = px() * f; sd.textItem.size = ti.size; }
+      sd.remove();
+      var lns = ti.contents.split(/[\r\n]/), nm = 1; for (i = 0; i < lns.length; i++) nm = Math.max(nm, lns[i].length - 1);
+      for (i = 0; i < 4; i++) { bb = b(l); var dw2 = alvo.w - bb.w; if (Math.abs(dw2) < 1) break; ti.tracking = Math.round(ti.tracking + dw2 / (nm * px() / 1000)); }
+      porLarg = true; i = 99;
+    }
+    for (i = (alvo.ch1 ? 99 : 0); i < 5; i++) {
       bb = altura(); f = porLarg ? alvo.w / b(l).w : (caps ? altAlvo : alvo.h) / bb.h;
       if (Math.abs(f - 1) < 0.002) break;
       ti.size = px() * f;

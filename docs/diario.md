@@ -140,3 +140,12 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - Trava de espaçamento no `Y.texto`: tracking < -40 ou > 160 = fonte errada; testa as alternativas (`fontes:` da reconstrução) e fica com a de espaçamento mais natural.
 - Texto atrás de PESSOA: `ocultar.py` detecta o sujeito na referência (seleção por IA "the person|the people|the main object") e mascara a letra onde a pessoa está na frente (cabeça sobre "CRESCEU.", celular sobre "QUANTO"), só em linha bem encaixada (cobertura >= 0,9) e com a falta concentrada; a falta por cobertura também precisa cair sobre o objeto (senão é encaixe ruim, não oclusão).
 - Removida a penalidade de largura no Python (com a etapa fina, derrubava linhas certas para "imagem").
+
+## 16/10/2026 (tarde): previews do README e dois bugs achados no caminho
+
+- Galeria `docs/previews/tecnicas.jpg`: neon, cromado, extrusão, sombra longa, glitch, vazado, arco, retícula, tudo por script (Anton, OFL).
+- Reconstrução da própria arte de exemplo (`presets/igreja-moderna/exemplo/preview.jpg`), que é pública e não tem cliente. Ela revelou três falhas:
+  1. **Bloco de várias linhas virava imagem.** O comparador de fonte renderiza uma linha só, então "CULTO DE / CELEBRAÇÃO / ..." tirava nota 0,02. Correção: o bloco é comparado pela 1ª linha (`l1`, guardada no `juntar_blocos`).
+  2. **Texto pequeno sem `--fonte-texto` e sem candidata ficava com fonte vazia**, e o Photoshop dava "Argumento Ilegal". Correção: a linha herda a fonte mais usada no post.
+  3. **Bloco com tracking largo (créditos espaçados) saía grande e apertado,** porque o tamanho vinha da largura. Correção: o tamanho vem do "H" da 1ª linha (`alvo.ch1`) e a largura vira tracking. A trava de espaçamento não troca a fonte nesses blocos (tracking 300 ali é do design).
+- Resultado: 10 de 10 camadas com erro <= 1 px. A ponta dos dedos sobre o "G" ficou borrada (o preenchimento do fundo invade a mão); fica registrado como limite.

@@ -101,6 +101,10 @@ Testado no Photoshop 2026 (27.11), Mac:
 
 O Yoshi foi treinado remontando posts reais pixel a pixel. As ferramentas que saíram disso:
 
+<img src="docs/previews/reconstrucao.jpg" width="720" alt="Imagem chapada à esquerda, PSD reconstruído pelo Yoshi à direita">
+
+*À esquerda, o JPG achatado. À direita, o PSD que o Yoshi reconstruiu sozinho: fundo limpo, 10 camadas de texto vivo com a fonte reconhecida (Unbounded, Space Mono, Ivy Presto) e posição conferida em até 1 px. Único ajuste manual: `--corrigir "/ IGREJA=/IGREJA;•=·"` para dois erros de leitura do OCR. Limite visível: a ponta dos dedos sobre o "G" ficou borrada pelo preenchimento do fundo.*
+
 - **Imagem chapada -> PSD editável** (`reconstruir.py`): OCR nativo do macOS acha cada linha e palavra; o fundo vira "fundo limpo" (texto apagado com preenchimento sensível ao conteúdo, sem crédito); cada linha volta como texto vivo com a fonte reconhecida, negrito e cor de destaque detectados por palavra, caixa marca-texto como forma editável, interface do Instagram (seta, bolinhas) removida.
 - **Ciclo idêntico** (`ciclo.py`): mede a referência, monta, mede o próprio resultado com a mesma régua e corrige até o erro ficar em 1 px.
 - **Reconhecer a fonte** em quatro camadas: Localizar fonte semelhante da Adobe, comparador local (desenho + espessura + largura), prova de fogo no Photoshop (`provar_fontes.py`) e WhatTheFont.
@@ -108,6 +112,10 @@ O Yoshi foi treinado remontando posts reais pixel a pixel. As ferramentas que sa
 - **Template da marca** (`virar_template.py`): o post reconstruído vira molde; texto novo com `**negrito**` e `{{destaque}}`, série inteira com `lote.py`.
 - **Produção**: versão story automática (`para_story.jsx`), carrossel em pranchetas, mockup em perspectiva exata, QA automático de contraste/zona segura/margens (`conferir_arte.py`).
 - **Efeitos**: neon, cromado, extrusão 3D, sombra longa, texto vazado, retícula, dupla exposição, luz de recorte, sombra de contato, glitch RGB, LUT de cinema, mapa de deslocamento, texto em arco, Mesclar se, separação de frequência (detalhes em `docs/tecnicas.md`).
+
+<img src="docs/previews/tecnicas.jpg" width="820" alt="Neon, cromado, extrusão 3D, sombra longa, glitch, texto vazado, texto em arco e retícula feitos pelo Yoshi">
+
+*Cada quadro é uma linha de `yoshi.jsx` sobre um texto vivo (continua editável no Photoshop). Gerado por script, sem IA e sem crédito.*
 
 # PRESETS DE ESTILO
 

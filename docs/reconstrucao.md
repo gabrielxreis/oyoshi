@@ -26,6 +26,9 @@
 | Fundo azul virou "caixa" | cor saturada do próprio fundo | a caixa tem que diferir do fundo da linha |
 | Retângulos escuros no degradê | sensível ao conteúdo amostra áreas escuras | difusão em fundo liso |
 | Myriad Pro no meio do texto | vão entre faixas sem fonte | `Y.faixas` grava a fonte da camada |
+| Bloco "CULTO DE / CELEBRAÇÃO" virou imagem | comparador renderiza uma linha só e o recorte tinha quatro | bloco comparado pela 1ª linha |
+| Créditos espaçados saíram grandes e apertados | tamanho do bloco vinha da largura | tamanho pelo "H" da 1ª linha (`ch1`), largura vira tracking |
+| "Argumento Ilegal" no Photoshop | linha pequena sem fonte candidata | herda a fonte mais usada no post |
 
 ## Limites conhecidos
 - Texto fino e claro sobre roupa ou parede clara contamina a medida: use `--fonte-linha`/`--estilo` e meça à mão (`medir_texto.py --regiao`).

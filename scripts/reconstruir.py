@@ -260,6 +260,7 @@ def juntar_blocos(linhas, k, pequeno):
     for l in linhas:
         p_ = next((o for o in reversed(out) if abs(o["x"] - l["x"]) <= 4 and -l["h"] * 0.6 <= l["y"] - (o["y"] + o["h"]) < l["h"] * 0.8), None)
         if p_ and l["h"] * k < pequeno * 0.6 and (p_["h"] / p_.get("n_linhas", 1)) * k < pequeno * 0.9:
+            if "n_linhas" not in p_: p_["l1"] = (p_["x"], p_["y"], p_["w"], p_["h"], p_["texto"])   # 1ª linha: base do reconhecimento de fonte
             p_["texto"] += "\r" + l["texto"]; p_["n_linhas"] = p_.get("n_linhas", 1) + 1
             p_.setdefault("tops", [p_["y"]]).append(l["y"])
             x2 = max(p_["x"] + p_["w"], l["x"] + l["w"]); y2 = l["y"] + l["h"]; p_["w"] = x2 - p_["x"]; p_["h"] = y2 - p_["y"]
@@ -390,7 +391,14 @@ def main():
         if mj:
             # vertical EXATO (sem folga): 2-3 px a mais já pegavam o topo da linha de baixo e mudavam a proporção
             cj = (max(0, int(mj["x"] / k) - 2), max(0, int(mj["y"] / k)), min(W0, int((mj["x"] + mj["w"]) / k) + 3), min(H0, int(np.ceil((mj["y"] + mj["h"]) / k))))
-        out = "" if pequeno and a.fonte_texto else roda(PY, os.path.join(AQUI, "comparar_fonte.py"), a.ref, *map(str, cj), txt, "--cor", ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), "--top", "12", *(["--filtro", a.filtro] if a.filtro else []))
+        cjf, txtf = cj, txt
+        if l.get("l1"):   # bloco de várias linhas: o comparador renderiza UMA linha -> compara só a 1ª (antes dava nota ~0,1 e virava imagem)
+            x1_, y1_, w1_, h1_, t1_ = l["l1"]; cjf = (max(0, x1_ - pj), max(0, y1_ - pj), min(W0, x1_ + w1_ + pj), min(H0, y1_ + h1_ + pj)); txtf = t1_.strip()
+        ch1 = None
+        if l.get("l1") and txtf == txtf.upper():   # corpo da maiúscula da 1ª linha: o tamanho do bloco sai daqui, não da largura (tracking largo enganava)
+            m1 = _C.medir(a.ref, cor, list(cjf), 1, (l["l1"][1] + l["l1"][3] / 2) * k)
+            if m1 and m1.get("ch"): ch1 = m1["ch"]
+        out = "" if pequeno and a.fonte_texto else roda(PY, os.path.join(AQUI, "comparar_fonte.py"), a.ref, *map(str, cjf), txtf, "--cor", ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), "--top", "12", *(["--filtro", a.filtro] if a.filtro else []))
         ranking = {}
         for ln in out.strip().splitlines():
             ps = ln.split()
@@ -400,7 +408,7 @@ def main():
         ranking_fora = None
         if ranking and a.filtro and max(ranking.values()) < 0.6 and not pequeno:
             # nota baixa com o filtro da marca = provavelmente outra família (post fora do padrão): varre tudo
-            out2 = roda(PY, os.path.join(AQUI, "comparar_fonte.py"), a.ref, *map(str, cj), txt, "--cor", ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), "--top", "12", timeout=900)
+            out2 = roda(PY, os.path.join(AQUI, "comparar_fonte.py"), a.ref, *map(str, cjf), txtf, "--cor", ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), "--top", "12", timeout=900)
             r2 = {}
             for ln in out2.strip().splitlines():
                 ps = ln.split()
@@ -422,8 +430,14 @@ def main():
         if mj:   # apaga só a caixa medida da linha (+4 px): a folga do OCR comia emoji e logo vizinhos
             cx_apagar = [max(0, mj["x"] - 5), max(0, mj["y"] - 5), mj["x"] + mj["w"] + 5, mj["y"] + mj["h"] + 5]
         camadas.append({"nome": nome, "rotulo": rotulo, "txt": txt, "cor": cor, "fonte": fonte, "faixas": fx, "caixa": cx_apagar,
-                        "passo": passo if l.get("n_linhas") else None,
+                        "passo": passo if l.get("n_linhas") else None, "ch1": ch1,
                         "ranking": ranking, "ranking_fora": ranking_fora, "alt": l["h"], "pequeno": pequeno, "esp": espessura(im, cj)})
+    # linha sem fonte (texto pequeno sem --fonte-texto e o comparador sem candidata, ex.: glifo "•" fora do filtro):
+    # herda a fonte mais usada no post em vez de ir vazia para o Photoshop (fonte "" = Argumento Ilegal)
+    usadas = [c["fonte"] for c in camadas if c["fonte"]]
+    for c in camadas:
+        if not c["fonte"] and usadas:
+            c["fonte"] = max(set(usadas), key=usadas.count); print(f"   {c['nome']}: sem candidata, herda {c['fonte']}", flush=True)
     for c_ in todas_caixas:
         caixas_mt.append({"cor": c_["cor"], "caixa": [round(v * k) for v in c_["ref"]]}); print(f"caixa marca-texto {c_['cor']} em {[int(v) for v in c_['ref']]}", flush=True)
     for c in camadas: print(f"   espessura {c['nome'][:24]:<24} {c['esp']:.3f}")
@@ -521,7 +535,7 @@ def main():
         fxs = f", faixas: {json.dumps(c['faixas'], ensure_ascii=False)}" if c["faixas"] else ""
         if c.get("passo"):   # bloco de várias linhas: largura + entrelinha medida
             fxs += f", entrelinha: {c['passo']}"
-            c["nome_alvo"] = f"Y.mesclar(ALV[{json.dumps(c['nome'], ensure_ascii=False)}], {{ por: \"largura\", passo: {c['passo']} }})"
+            c["nome_alvo"] = f"Y.mesclar(ALV[{json.dumps(c['nome'], ensure_ascii=False)}], {{ por: \"largura\", passo: {c['passo']}" + (f", ch1: {c['ch1']}" if c.get("ch1") else "") + " })"
         alts = [f_ for f_ in sorted(c.get("ranking") or {}, key=(c.get("ranking") or {}).get, reverse=True)[:6] if "Italic" not in f_ and "Oblique" not in f_]
         if not c["pequeno"] and alts: fxs += f", fontes: {json.dumps(alts)}"
         js.append(f"Y.texto({{ txt: {json.dumps(c['txt'], ensure_ascii=False)}, nome: {json.dumps(c['rotulo'], ensure_ascii=False)}, fonte: {json.dumps(c['fonte'])}, px: 40, cor: {json.dumps(c['cor'])}, tracking: 0{fxs}, alvo: {c.get('nome_alvo') or 'ALV[' + json.dumps(c['nome'], ensure_ascii=False) + ']'} }}, gT);")
