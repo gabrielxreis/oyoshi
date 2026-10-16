@@ -163,7 +163,20 @@ var Y = (function () {
     nomeia(l, o.nome || o.txt.split("\n")[0].substr(0, 30));
     if (o.faixas) Y.faixas(l, o.faixas);
     if (o.caixa) { ti.position = [o.x, o.y]; }
-    else if (o.alvo) Y.encaixarTexto(l, o.alvo);
+    else if (o.alvo) {
+      Y.encaixarTexto(l, o.alvo);
+      // fonte errada = espaçamento absurdo para caber na largura medida (letras grudadas ou espalhadas): testa as
+      // alternativas (o.fontes) e fica com a que pede o espaçamento mais natural
+      var trk = l.textItem.tracking;
+      if (o.fontes && o.fontes.length && (trk < -40 || trk > 160)) {
+        var melhor = { f: o.fonte, t: trk };
+        for (var q = 0; q < o.fontes.length; q++) { if (o.fontes[q] === o.fonte) continue;
+          try { l.textItem.font = o.fontes[q]; l.textItem.tracking = 0; if (o.faixas) Y.faixas(l, o.faixas); Y.encaixarTexto(l, o.alvo);
+            var tq = l.textItem.tracking; if (Math.abs(tq - 40) < Math.abs(melhor.t - 40)) melhor = { f: o.fontes[q], t: tq }; } catch (eF) {} }
+        l.textItem.font = melhor.f; l.textItem.tracking = 0; if (o.faixas) Y.faixas(l, o.faixas); Y.encaixarTexto(l, o.alvo);
+        Y.TROCAS = (Y.TROCAS || []).concat([o.nome + ": " + o.fonte + " -> " + melhor.f + " (tracking " + Math.round(trk) + " -> " + Math.round(l.textItem.tracking) + ")"]);
+      }
+    }
     else Y.ancorar(l, o.x, o.y, o.ancora || "tl");
     return entra(l, g);
   };

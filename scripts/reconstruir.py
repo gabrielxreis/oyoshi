@@ -333,7 +333,7 @@ def main():
     ap.add_argument("--corrigir", default="", help='trocas de texto do OCR: "para or=para o;0F=05"')
     ap.add_argument("--zonas", default="", help='áreas (px da referência) onde mora o texto de design: "x1,y1,x2,y2;..." (texto fora = da foto)')
     ap.add_argument("--limpar-ui", action="store_true", help="apaga seta e bolinhas do carrossel do Instagram (print)")
-    ap.add_argument("--nota-min", type=float, default=0.45, help="abaixo disso a linha fica como imagem (logo)")
+    ap.add_argument("--nota-min", type=float, default=0.35, help="abaixo disso a linha fica como imagem (logo)")
     a = ap.parse_args(); os.makedirs(a.pasta, exist_ok=True)
     im = Image.open(a.ref).convert("RGB"); W0, H0 = im.size; k = a.largura / W0; H = round(H0 * k)
     linhas = juntar_blocos(json.loads(roda(os.path.join(AQUI, "swift", "ocr"), a.ref)), k, a.pequeno)
@@ -396,14 +396,14 @@ def main():
             ps = ln.split()
             if len(ps) >= 4 and ps[0].replace(".", "").isdigit():
                 lg = float(ps[2]) if len(ps) > 3 else 1.0   # largura natural: < 0,93 exige tracking absurdo (letras grudadas)
-                ranking[ps[-1]] = float(ps[0]) * (0.97 if "Italic" in ps[-1] or "Oblique" in ps[-1] else 1.0) - max(0, 0.93 - lg) * 1.5
+                ranking[ps[-1]] = float(ps[0]) * (0.97 if "Italic" in ps[-1] or "Oblique" in ps[-1] else 1.0)
         if ranking and a.filtro and max(ranking.values()) < 0.6 and not pequeno:
             # nota baixa com o filtro da marca = provavelmente outra família (post fora do padrão): varre tudo
             out2 = roda(PY, os.path.join(AQUI, "comparar_fonte.py"), a.ref, *map(str, cj), txt, "--cor", ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), "--top", "12", timeout=900)
             r2 = {}
             for ln in out2.strip().splitlines():
                 ps = ln.split()
-                if len(ps) >= 4 and ps[0].replace(".", "").isdigit(): r2[ps[-1]] = float(ps[0]) * (0.97 if "Italic" in ps[-1] or "Oblique" in ps[-1] else 1.0) - max(0, 0.93 - float(ps[2])) * 1.5
+                if len(ps) >= 4 and ps[0].replace(".", "").isdigit(): r2[ps[-1]] = float(ps[0]) * (0.97 if "Italic" in ps[-1] or "Oblique" in ps[-1] else 1.0)
             if r2 and max(r2.values()) > max(ranking.values()) + 0.08:
                 print(f"   fora da família da marca: {max(r2, key=r2.get)} ({max(r2.values()):.2f}) > {max(ranking.values()):.2f}", flush=True); ranking = r2
         if ranking:
@@ -512,10 +512,14 @@ def main():
         if c.get("passo"):   # bloco de várias linhas: largura + entrelinha medida
             fxs += f", entrelinha: {c['passo']}"
             c["nome_alvo"] = f"Y.mesclar(ALV[{json.dumps(c['nome'], ensure_ascii=False)}], {{ por: \"largura\", passo: {c['passo']} }})"
+        alts = [f_ for f_ in sorted(c.get("ranking") or {}, key=(c.get("ranking") or {}).get, reverse=True)[:6] if "Italic" not in f_ and "Oblique" not in f_]
+        if not c["pequeno"] and alts: fxs += f", fontes: {json.dumps(alts)}"
         js.append(f"Y.texto({{ txt: {json.dumps(c['txt'], ensure_ascii=False)}, nome: {json.dumps(c['rotulo'], ensure_ascii=False)}, fonte: {json.dumps(c['fonte'])}, px: 40, cor: {json.dumps(c['cor'])}, tracking: 0{fxs}, alvo: {c.get('nome_alvo') or 'ALV[' + json.dumps(c['nome'], ensure_ascii=False) + ']'} }}, gT);")
-    js += ["Y.salvar(SAIDA + \"/editavel.psd\", SAIDA + \"/editavel.png\");", "\"ok\";"]
+    js += ["Y.salvar(SAIDA + \"/editavel.psd\", SAIDA + \"/editavel.png\");", "\"ok\" + (Y.TROCAS ? \" | trocas: \" + Y.TROCAS.join(\"; \") : \"\");"]
     open(os.path.join(a.pasta, "arte.jsx"), "w").write("\n".join(js) + "\n")
-    json.dump([{"nome": c["nome"], "fonte": c["fonte"], "cor": c["cor"],
+    json.dump([{"nome": c["nome"], "fonte": c["fonte"], "cor": c["cor"], "pequeno": c["pequeno"],
+                "candidatas": sorted(c["ranking"], key=c["ranking"].get, reverse=True)[:4] if c.get("ranking") else [],
+                "notas": sorted(c["ranking"].values(), reverse=True)[:4] if c.get("ranking") else [],
                 "negrito": next((f["fonte"] for f in c["faixas"] if f.get("fonte")), None) or a.fonte_negrito or None,
                 "destaque": next((f["cor"] for f in c["faixas"] if f.get("cor")), None)} for c in camadas],
               open(os.path.join(a.pasta, "camadas.json"), "w"), ensure_ascii=False, indent=1)

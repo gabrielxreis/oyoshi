@@ -134,3 +134,9 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - `avaliar_fontes.py`: PSDs com camadas de texto (templates de igreja) viram verdade conhecida; recorta cada linha no composto e confere a fonte reconhecida. Primeira medida honesta, sem filtro de marca, varrendo todas as ~4 mil fontes instaladas.
 - Resultados (mesmas 29 linhas): comparador antigo 59% exato / 79% top 5 / 66% família; com a etapa fina (render no tamanho real em cinza + correlação com deslocamento) 59% / 79% / **72% família**; com termo de quantidade de tinta 52% (revertido).
 - Lições da bancada: (1) caixa alta aplicada por estilo (FontCaps) muda tudo: comparar com o texto como aparece; (2) passar a cor do texto é decisivo (18% -> 49% só com isso e caps); (3) erro que sobra é quase todo PESO vizinho (Medium x Regular, ExtraBold x Black) e famílias gêmeas (Roboto x Metropolis, Montserrat x Brandon) -> na prática usar o filtro da marca + prova de fogo.
+
+## 2026-10-16 08h: feedback do Gabriel ("tá bem ruim", "texto por cima da pessoa")
+- Diagnóstico honesto: o ciclo dizia "bateu" porque media só a CAIXA; com a fonte errada o motor forçava o espaçamento até a largura bater e as letras se atropelavam (médico medo, visa, carreira, currículo).
+- Trava de espaçamento no `Y.texto`: tracking < -40 ou > 160 = fonte errada; testa as alternativas (`fontes:` da reconstrução) e fica com a de espaçamento mais natural.
+- Texto atrás de PESSOA: `ocultar.py` detecta o sujeito na referência (seleção por IA "the person|the people|the main object") e mascara a letra onde a pessoa está na frente (cabeça sobre "CRESCEU.", celular sobre "QUANTO"), só em linha bem encaixada (cobertura >= 0,9) e com a falta concentrada; a falta por cobertura também precisa cair sobre o objeto (senão é encaixe ruim, não oclusão).
+- Removida a penalidade de largura no Python (com a etapa fina, derrubava linhas certas para "imagem").

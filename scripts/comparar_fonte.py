@@ -188,6 +188,15 @@ def render_fino(caminho, idx, texto, alvo):
         return None
 
 
+def meia_espessura(m, maxit=20):
+    """Meia-espessura média do traço em px: soma das áreas que sobrevivem a erosões sucessivas / área inicial."""
+    cur = Image.fromarray((m * 255).astype(np.uint8)); tot = m.sum(); acc = 0
+    for _ in range(maxit):
+        cur = cur.filter(ImageFilter.MinFilter(3)); n = (np.asarray(cur) > 0).sum(); acc += n
+        if n == 0: break
+    return acc / max(1, tot)
+
+
 def corr_desloc(a, b, raio=2):
     """Maior correlação normalizada entre a e b com deslocamento de até `raio` px (alinhamento sub-caixa)."""
     melhor = -1
@@ -248,7 +257,7 @@ def main():
             for n, larg, ps, f, i in res[:15]:
                 r = render_fino(f, i, a.texto, it)
                 fino = corr_desloc(it, r) if r is not None else 0
-                novos.append((fino * 0.7 + n * 0.3, larg, ps, f, i))   # (termo de tinta testado: piorou 59% -> 52%)
+                novos.append((fino * 0.7 + n * 0.3, larg, ps, f, i))   # testados e piores: + tinta (52%), + espessura (55%)
             res = sorted(novos, reverse=True) + res[15:]
     top = res[:a.top]
     for n, larg, ps, f, i in top:

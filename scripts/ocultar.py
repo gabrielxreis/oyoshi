@@ -34,6 +34,18 @@ def main():
     ref = Image.open(med["ref"]).convert("RGB").resize((W, round(Image.open(med["ref"]).height * W / Image.open(med["ref"]).width)))
     ref = ref.crop((0, 0, W, H)) if ref.height >= H else ref
     aplicar = []
+    # pessoa/objeto principal na referência (seleção por IA do Photoshop): onde ela cruza a caixa de um texto e a
+    # referência não tem tinta ali, a pessoa está NA FRENTE do texto (cabeça sobre o título)
+    sujeito = None
+    try:
+        r_ = subprocess.run([os.path.join(AQUI, "..", ".venv", "bin", "python"), os.path.join(AQUI, "medir_objeto.py"), med["ref"], "--ps",
+                             "the person|the people|the main object"], capture_output=True, text=True, timeout=600).stdout.strip().splitlines()
+        mp = next((x for x in r_ if x.endswith(".mascara.png")), None)
+        if mp:
+            sujeito = np.asarray(Image.open(mp).convert("L").resize((W, H)), np.uint8) > 128
+            print(f"sujeito detectado: {sujeito.mean():.0%} da imagem", flush=True)
+    except Exception as e:
+        print("sem sujeito:", e)
     for it in med["itens"]:
         n = it["nome"]; a = alv.get(n)
         if not a: continue
@@ -44,6 +56,19 @@ def main():
         dil = np.asarray(Image.fromarray((mr * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(rd))) > 0
         cob = (mm & dil).sum() / max(1, mm.sum())
         print(f"{n}: cobertura {cob:.2f}", flush=True)
+        if sujeito is not None and mm.sum() >= 50:
+            sj = sujeito[cx[1]:cx[3], cx[0]:cx[2]]
+            frente = mm & sj & ~dil   # letra do remake onde a referência mostra a PESSOA (sem tinta)
+            # só julga linha bem encaixada (cobertura alta): linha com fonte errada sobra tinta fora e parece oclusão
+            fcol = frente.sum(0).astype(float); jj = max(5, int(len(fcol) * 0.35))
+            fconc = np.convolve(fcol, np.ones(jj), "valid").max() / max(1, fcol.sum()) if fcol.sum() else 0
+            # bem encaixada + falta de tamanho real (>= 3%) + concentrada num trecho (cabeça/objeto, não borda de letra)
+            if cob >= 0.9 and frente.sum() > max(60, mm.sum() * 0.03) and fconc >= 0.8:
+                print(f"   pessoa/objeto na frente: {int(frente.sum())} px", flush=True)
+                vis = Image.fromarray(((~(sj & ~dil)) * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(3))
+                full = Image.new("L", (W, H), 255); full.paste(vis, cx[:2])
+                p = os.path.join(pasta, f"mascara_{n}.png"); rgba = Image.new("RGBA", (W, H), (255, 255, 255, 0)); rgba.putalpha(full); rgba.save(p)
+                aplicar.append((n, p, None, cores[0])); continue
         if cob >= lim or mm.sum() < 50:
             continue
         # objeto na frente = falta CONCENTRADA num trecho (o celular cobre algumas letras); falta espalhada pela
@@ -51,8 +76,14 @@ def main():
         falta = (mm & ~dil).sum(0).astype(float); jan = max(5, int(len(falta) * 0.45))
         conc = np.convolve(falta, np.ones(jan), "valid").max() / max(1, falta.sum())
         print(f"   falta concentrada {conc:.2f}", flush=True)
-        if conc < 0.75:
+        if conc < 0.8:
             continue
+        # e a falta tem que cair em cima de um objeto/pessoa detectado (senão é só encaixe ruim, não oclusão)
+        if sujeito is not None:
+            fm = mm & ~dil; sob = (fm & sujeito[cx[1]:cx[3], cx[0]:cx[2]]).sum() / max(1, fm.sum())
+            print(f"   falta sobre objeto {sob:.2f}", flush=True)
+            if sob < 0.5:
+                continue
         # abertura: tira traços finos (contorno desenhado sobre o objeto) antes de dilatar; senão a máscara sai pontilhada
         esp = max(3, int(round((a["h"] * 0.06)))) | 1
         vis = Image.fromarray((mr * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(esp)).filter(ImageFilter.MaxFilter(esp)).filter(ImageFilter.MaxFilter(7))
