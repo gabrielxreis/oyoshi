@@ -32,8 +32,8 @@ def usados(texto, r):
     return ("x", "w", "cy", "ch", "xy", "xh")
 
 
-def medir(img, cor, regiao):
-    out = subprocess.run([PY, os.path.join(AQUI, "medir_texto.py"), img, "--cor", cor, "--regiao", *map(str, regiao)],
+def medir(img, cor, regiao, juntar=3):
+    out = subprocess.run([PY, os.path.join(AQUI, "medir_texto.py"), img, "--cor", cor, "--regiao", *map(str, regiao), "--juntar", str(juntar)],
                          capture_output=True, text=True).stdout.splitlines()
     linhas = json.loads(out[0]) if out else []
     if not linhas:
@@ -49,7 +49,7 @@ def main():
     wref = Image.open(cfg["ref"]).width
     ref = {}
     for it in cfg["itens"]:
-        m = medir(cfg["ref"], it["cor"], it["regiao"])
+        m = medir(cfg["ref"], it["cor"], it["regiao"], it.get("juntar", 3))
         if not m:
             print("sem medida na referência:", it["nome"]); continue
         ref[it["nome"]] = m
@@ -69,11 +69,12 @@ def main():
             if n not in ref:
                 continue
             # no remake mede só em volta da caixa da referência (+14 px): foto/mão diferente perto não contamina
-            R_ = ref[n]; rg = [max(0, round(R_["x"] - 14)), max(0, round(R_["y"] - 14)), round(R_["x"] + R_["w"] + 14), round(R_["y"] + R_["h"] + 14)]
-            m = medir(png, it.get("cor_remake", it["cor"]), rg)
+            R_ = ref[n]; mg = max(4, min(14, round(R_["h"] * 0.3)))   # folga proporcional: linhas pequenas empilhadas não se misturam
+            rg = [max(0, round(R_["x"] - mg)), max(0, round(R_["y"] - mg)), round(R_["x"] + R_["w"] + mg), round(R_["y"] + R_["h"] + mg)]
+            m = medir(png, it.get("cor_remake", it["cor"]), rg, it.get("juntar", 3))
             if not m:
                 print(f"  {n}: não achei no remake"); continue
-            usa = usados(it.get("texto", ""), ref[n])
+            usa = ("x", "w", "y") if it.get("bloco") else (usados(it.get("texto", ""), ref[n]) if ref[n]["h"] >= 34 else ("x", "w", "y", "h"))   # bloco: largura + topo; minúsculo: caixa inteira
             err = {c: ref[n][c] - m[c] for c in usa if c in m and c in ref[n]}
             e = max(abs(v) for v in err.values()); pior = max(pior, e)
             print(f"  {n:<22} erro máx {e:>3} px  " + " ".join(f"{c}{v:+d}" for c, v in err.items() if v))

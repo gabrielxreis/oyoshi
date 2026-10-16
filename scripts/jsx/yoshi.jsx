@@ -178,7 +178,7 @@ var Y = (function () {
     var porLarg = alvo.por === "largura";
     // CAIXA ALTA com corpo medido (cy/ch): mede pela altura do "H" numa cópia, sem acento/cedilha atrapalhar
     // minúsculas com xh medido: mede pelo "x" (acento, cedilha, ascendente e descendente não atrapalham)
-    var temMin = /[a-zà-ÿ]/.test(ti.contents), caps = (alvo.ch && !temMin) || (alvo.xh && temMin), sonda = null;
+    var temMin = /[a-zà-ÿ]/.test(ti.contents), caps = alvo.h >= 34 && ((alvo.ch && !temMin) || (alvo.xh && temMin)), sonda = null;   // < 22 px: caixa inteira
     var letra = temMin ? "x" : "H", altAlvo = temMin ? alvo.xh : alvo.ch, topoAlvo = temMin ? alvo.xy : alvo.cy;
     function altura() {
       if (!caps) return b(l);
@@ -763,6 +763,7 @@ var Y = (function () {
     f.putUnitDouble(s("opacity"), s("percentUnit"), 100); f.putEnumerated(s("mode"), s("blendMode"), s("normal")); executeAction(s("fill"), f, DialogModes.NO);
     D.selection.deselect(); return l;
   };
+  Y.mesclar = function (a, b) { var o = {}, k; for (k in a) o[k] = a[k]; for (k in b) o[k] = b[k]; return o; };
   Y.D = function () { return D; };
   // Lê um JSON (alvos.json do ciclo.py, preset.json da marca). ExtendScript não tem JSON nativo confiável.
   Y.lerJSON = function (caminho) { var f = new File(caminho); f.encoding = "UTF-8"; if (!f.exists) return {}; f.open("r"); var t = f.read(); f.close(); return eval("(" + t + ")"); };
