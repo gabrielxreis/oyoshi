@@ -29,3 +29,9 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - Logo da Bora Comunicação entrava menor: o PNG tem halo de alfa 1-5% até a borda e o Photoshop conta isso no tamanho. `aparar.py` limpa e recorta; com o aparado, o logo bate em 1 px (449,1206,180,53 x ref 449,1205,180,53).
 - `montar.py` agora fecha os documentos que abriu. Havia 21 abertos e o Photoshop parou com "discos de trabalho cheios" (disco do Mac com 6 GB livres).
 - Caixa marca-texto: medida direto da referência (cor laranja) e desenhada como retângulo, em vez de calcular pelo texto + padding.
+
+## 2026-10-16 04h: Calverstone fechada no texto
+- Re-medida com corpo (cy/ch): as 4 linhas do remake batem em até 1 px com a referência (medir_texto nos dois lados).
+- Prova de fogo: apoio = Montserrat-Regular/Bold (0,90; Gotham Book 0,86), título = GoodPro-XCondBlack (0,609 x XCondUltra 0,592; no olho, menos fantasma nas letras).
+- Lição: dentro de uma família com muitas larguras/pesos (Good Pro, Owners), o comparador acha a família e a prova de fogo escolhe a variante.
+- Diferença que sobra é a FOTO (outra pessoa). Para ficar idêntico de verdade precisaria da mesma foto de banco ou gerar por IA (perguntar ao Gabriel).
