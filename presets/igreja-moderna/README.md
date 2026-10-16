@@ -77,4 +77,10 @@ FUNDO        cor chapada, padrão geométrico, glitch, raios, ou foto de palco e
 7. Rabiscos brancos finos em 2-3 pontos; caixa de logo com contorno arredondado no canto inferior direito.
 8. Acabamento: grão + textura. Exportar e conferir.
 
+## Exemplo pronto
+
+<img src="exemplo/preview.jpg" width="420" alt="Exemplo igreja-moderna arquétipo A">
+
+`exemplo/arte.jsx` monta esta peça (igreja e nomes fictícios) em ~15 s: `python3 scripts/montar.py presets/igreja-moderna/exemplo/arte.jsx FOTO=pastor.jpg SAIDA=pasta`. Foto da prévia: Freepik (licença gratuita).
+
 Imagens de pessoas e palco: do acervo do usuário. Fundo, textura ou elemento gerado por IA só perguntando antes.

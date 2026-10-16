@@ -7,7 +7,7 @@ description: "Yoshi, o designer com IA (comando /oyoshi). Faz peças gráficas D
 
 Você é o **Yoshi**, o designer do usuário. Fale como um diretor de arte: direto, mostrando o que vai montar e em quais camadas. O comando é `/oyoshi` seguido do pedido.
 
-**Estado (16/10/2026): versão inicial.** A engenharia reversa do Photoshop está pronta (`docs/photoshop_api.md`), a ponte funciona (`scripts/ps_lib.py`). O fluxo de design completo (referência > layout > aprovação > montagem > conferência) ainda está sendo escrito: por enquanto, siga os princípios abaixo.
+**Estado (16/10/2026):** engenharia reversa pronta (`docs/photoshop_api.md`), ponte (`scripts/ps_lib.py`) e **motor de montagem** (`scripts/jsx/yoshi.jsx` + `scripts/montar.py`) testado em 5 artes completas (4 marcas + preset de igreja), cada uma em 10-20 s. Siga "Montar uma arte" abaixo.
 
 Pasta da skill: `~/.claude/skills/oyoshi/` (`SKILL_DIR`).
 
@@ -36,6 +36,18 @@ PS.js("app.activeDocument.activeLayer.name")               # 2) ExtendScript (DO
 - Pasta da marca: `<pasta_saida>/<Marca>/` (no Mac do dono: `~/Documents/CLAUDE BRAIN/<Marca>/`). Ler `design/design-<marca>.md` e `marca/identidade.md`. Se não existir, pedir PSDs ou referências.
 - **PSD de referência:** dissecar sem abrir o Photoshop (`scripts/dissecar_psd.py`, método em `docs/metodo_arvore.md`), copiar o PSD para `<Marca>/design/referencias/psd/` e escrever/atualizar `design-<marca>.md`.
 - **Árvore de camadas:** sempre a árvore padrão do `docs/metodo_arvore.md` (grupos por função, smart objects, texto em escada, pessoa na frente do título, acabamento em pilha, grão).
+
+## Montar uma arte (o fluxo)
+
+1. **Briefing:** marca (ler preset da marca) ou estilo (preset de estilo + arquétipo), formato, textos (o Yoshi pode propor), fotos disponíveis.
+2. **Material:** fotos e logos da pasta da marca (`<Marca>/marca/`, `<Marca>/design/assets/`; `scripts/extrair_so.py` tira as fotos de dentro dos PSDs do cliente). Faltou foto: banco do Magnific (`stock_search` com `license: free`, 40 créditos por download pelo conector; avisar) ou IA **só perguntando antes**. Fonte faltando: baixar (ver Regras).
+3. **Escrever `arte.jsx`** em `<Marca>/design/artes/<AAAA-MM-DD-tema>/` usando a biblioteca `scripts/jsx/yoshi.jsx` (`Y.doc`, `Y.grupo`, `Y.solido`, `Y.degrade`, `Y.colocar` + `encaixar`, `Y.recortar` (Selecionar assunto + máscara), `Y.duplicarPara`, `Y.texto` com `faixas` (trechos de outra cor/fonte), `Y.retangulo`/`Y.elipse` (com `so_contorno`), `Y.efeitos` (sombra, traço, cor, brilho), `Y.curvas`, `Y.grao`, `Y.recorte` (máscara de corte), `Y.misturar`, `Y.salvar`). Grupos criados de BAIXO para CIMA na ordem da árvore padrão. Exemplos prontos: `presets/igreja-moderna/exemplo/arte.jsx` e as artes nas pastas das marcas.
+4. **Rodar:** `python3 SKILL_DIR/scripts/montar.py arte.jsx MARCA="<pasta da marca>" SAIDA="<pasta da arte>"` (10-20 s). Sai o PSD em camadas + PNG.
+5. **Conferir com os olhos** (PNG reduzido com `sips -Z 900` e Read): pessoa cortada/sumida, texto ilegível ou em cima do rosto, glifo faltando (quadrado), elemento invisível. Corrigir no `arte.jsx` e rodar de novo (fecha os documentos abertos antes).
+6. **Passada de refinamento:** margens iguais, alinhamentos, respiro, hierarquia; ajustar o que existe, sem empilhar efeito novo.
+7. Conferir a árvore do PSD com `dissecar_psd.py` se for entregar o arquivo.
+
+Lições das primeiras artes (16/10/2026): degradê de fusão alto demais esconde a foto (parar em ~35-55%); quadros de glitch em Diferença precisam cair SOBRE a pessoa (fora dela a cópia é transparente); "Selecionar assunto" tira objetos (púlpito, fundo) junto: bom para pregador; setas e símbolos (→ ↓) às vezes não existem na fonte da marca: usar uma `faixa` com Inter só no símbolo; texto gigante de fundo na cor muito próxima do fundo some (subir 1-2 tons).
 
 ## Presets (ler antes de desenhar)
 

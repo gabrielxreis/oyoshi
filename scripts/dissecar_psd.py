@@ -85,7 +85,7 @@ def no(layer, prof):
     k = layer.kind
     d = {"nome": layer.name, "tipo": k, "visivel": layer.visible, "opacidade": round(layer.opacity / 255 * 100),
          "mesclagem": str(layer.blend_mode).split(".")[-1], "bbox": list(layer.bbox), "prof": prof}
-    if layer.clipping_layer: d["recorte"] = True
+    if getattr(layer, "clipping", False): d["recorte"] = True
     if layer.has_mask(): d["mascara"] = True
     if getattr(layer, "has_vector_mask", lambda: False)(): d["mascara_vetor"] = True
     fx = efeitos(layer)

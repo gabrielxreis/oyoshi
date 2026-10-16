@@ -79,6 +79,11 @@ PS.js("app.activeDocument.layers.length")
 
 # O QUE JÁ FUNCIONA
 
+**Arte completa em camadas em 10-20 segundos.** O Yoshi escreve a peça como um roteiro (`arte.jsx`) usando a biblioteca `yoshi.jsx` (grupos, cor, degradê, foto ajustada à caixa, recorte de pessoa com IA local, texto com trechos coloridos, formas, efeitos, grão) e o `montar.py` constrói o PSD e o PNG. Exemplo: [`presets/igreja-moderna/exemplo`](presets/igreja-moderna/exemplo).
+
+<img src="presets/igreja-moderna/exemplo/preview.jpg" width="360" alt="Arte montada pelo Yoshi">
+
+
 Testado no Photoshop 2026 (27.11), Mac:
 
 - Documento novo, pranchetas (carrossel num PSD só), grupos, máscaras de corte.
@@ -151,6 +156,9 @@ scripts/ps_lib.py            ponte Python com o Photoshop
 scripts/jsx/                 bibliotecas ExtendScript (descritor para JSON, agente, gravador)
 scripts/sondar/              scripts de sondagem para refazer a engenharia reversa
 scripts/dissecar_psd.py      estuda um PSD sem abrir o Photoshop
+scripts/jsx/yoshi.jsx        biblioteca de montagem (Y.texto, Y.colocar, Y.recortar...)
+scripts/montar.py            roda um arte.jsx e gera PSD + PNG
+scripts/extrair_so.py        tira fotos e logos de dentro dos smart objects de um PSD
 presets/<estilo>/            técnicas de um estilo (README + preset.json)
 ```
 
