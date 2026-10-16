@@ -120,15 +120,36 @@ var Y = (function () {
   };
   // Encaixa um texto numa caixa medida na referência (medir_texto.py): ajusta o tamanho até a LARGURA (ou altura,
   // com alvo.por:"altura") bater e coloca a caixa dos pixels exatamente em x,y. Não distorce a fonte.
+  // Encaixa um texto numa caixa medida na referência (medir_texto.py) para ficar IDÊNTICO:
+  //  1) tamanho pela ALTURA da caixa; 2) tracking calculado para a LARGURA bater; 3) posiciona a caixa dos pixels em x,y.
+  // alvo.por: "largura" = só tamanho pela largura (sem mexer no tracking), "altura" = só tamanho pela altura.
   Y.encaixarTexto = function (l, alvo) {
-    var ti = l.textItem;
-    for (var i = 0; i < 4; i++) {
-      var bb = b(l), f = alvo.por === "altura" ? alvo.h / bb.h : alvo.w / bb.w;
+    var ti = l.textItem, i, bb, f;
+    function px() { return ti.size.as ? ti.size.as("px") : Number(ti.size); }
+    var porLarg = alvo.por === "largura";
+    // CAIXA ALTA com corpo medido (cy/ch): mede pela altura do "H" numa cópia, sem acento/cedilha atrapalhar
+    var caps = alvo.ch && !/[a-zà-ÿ]/.test(ti.contents), sonda = null;
+    function altura() {
+      if (!caps) return b(l);
+      if (sonda) sonda.remove();
+      sonda = l.duplicate(); sonda.textItem.contents = "H"; return b(sonda);
+    }
+    for (i = 0; i < 5; i++) {
+      bb = altura(); f = porLarg ? alvo.w / b(l).w : (caps ? alvo.ch : alvo.h) / bb.h;
       if (Math.abs(f - 1) < 0.002) break;
-      ti.size = ti.size.as ? ti.size.as("px") * f : ti.size * f;
+      ti.size = px() * f;
       if (ti.useAutoLeading === false) { try { ti.leading = ti.leading.as("px") * f; } catch (e) {} }
     }
-    var bb2 = b(l); l.translate(alvo.x - bb2.x, alvo.y - bb2.y); return l;
+    if (!porLarg && alvo.por !== "altura" && alvo.w) {
+      var n = Math.max(1, ti.contents.replace(/[\r\n]/g, "").length - 1);
+      for (i = 0; i < 4; i++) {
+        bb = b(l); var dw = alvo.w - bb.w; if (Math.abs(dw) < 1) break;
+        ti.tracking = Math.round(ti.tracking + dw / (n * px() / 1000));
+      }
+    }
+    bb = b(l); var topo = caps ? altura().y : bb.y, alvoY = caps ? alvo.cy : alvo.y;
+    if (sonda) sonda.remove();
+    l.translate(alvo.x - bb.x, alvoY - topo); return l;
   };
   Y.ancorar = function (l, x, y, anc) {
     var bb = b(l), tx = x - bb.x, ty = y - bb.y;

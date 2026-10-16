@@ -117,9 +117,11 @@ def main():
     a = ap.parse_args()
     crop = Image.open(a.img).convert("RGB").crop((a.x1, a.y1, a.x2, a.y2))
     if a.cor:
-        alvo = np.array([int(a.cor[i:i + 2], 16) for i in (1, 3, 5)], dtype=np.float32)
-        px = np.asarray(crop, dtype=np.float32)
-        ref = apertar(np.sqrt(((px - alvo) ** 2).sum(axis=2)) < a.tol)
+        px = np.asarray(crop, dtype=np.float32); m = np.zeros(px.shape[:2], dtype=bool)
+        for c in a.cor.split(","):  # várias cores: "#FFFFFF,#3ED6A6" (linha com palavra destacada)
+            c = c.strip(); alvo = np.array([int(c[i:i + 2], 16) for i in (1, 3, 5)], dtype=np.float32)
+            m |= np.sqrt(((px - alvo) ** 2).sum(axis=2)) < a.tol
+        ref = apertar(m)
     else:
         ref = apertar(binarizar(crop))
     fontes = indice()

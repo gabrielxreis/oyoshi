@@ -15,3 +15,10 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
   - Camada de preenchimento já nasce com máscara: `Y.tirarMascara` apaga a vazia antes (senão "Criar não disponível").
 - **Linha branca atravessando o celular** era o contorno das letras grosso (2 px) e branco sobre tela preta. No original: 1 px, ~75% de opacidade, sobre a tela ACESA. `Y.contornoSobre(texto, tela, cor, 1)`.
 - **Recorte automático (máscara de corte):** camada inserida logo acima da base de um recorte já entra recortada; `Y.recorte` não repete (senão erro).
+
+## 2026-10-16 03h: corpo da letra (cy/ch) e texto em duas cores
+- `medir_texto.py` aceita várias cores (`--cor "#FFFFFF,#3ED6A6"`) para linhas com palavra destacada, e devolve `cy/ch`: o CORPO da linha (faixa densa = altura da maiúscula), que ignora acento, cedilha, vírgula e cauda do Q.
+- `Y.encaixarTexto` com `alvo.ch` em texto CAIXA ALTA mede numa cópia com só "H": o tamanho sai pela altura real da maiúscula e o topo do H vai para `cy`. Antes, "COMEÇAR" (cedilha) e "É" (acento) aumentavam a caixa e a fonte saía menor.
+- `comparar_fonte.py --cor` também aceita várias cores.
+- Texto fino antisserrilhado (Poppins Light 31 px) fica cinza ~186 na referência: medir com `--cor "#FFFFFF,#B4B4B4" --tol 60`, senão a primeira letra some da caixa.
+- Bora Imigrar "médico medo": título é FranklinGothicATF-Heavy (mesmo do "QUANTO GANHA"), apoio Poppins-Light. Título quebrado em 3 camadas, uma por linha, cada uma com alvo próprio: sobreposição bate com 1-2 px de diferença.

@@ -6,6 +6,8 @@
   a caixa justa de cada linha (x, y, w, h) já convertida para a largura do documento final (padrão 1080).
 - `--regiao` limita a busca (em pixels da referência ORIGINAL), útil para separar título de apoio.
 - Saída: JSON (uma lista) + prévia `*.medidas.png` com as caixas desenhadas para conferir.
+- `cy`/`ch` = topo e altura do CORPO (altura das maiúsculas): use em texto caixa alta, o motor encaixa pela letra H
+  e ignora acento/cedilha (que mudam a caixa total e faziam o tamanho sair errado).
 Use as caixas no arte.jsx com `alvo: {x, y, w, h}` em Y.texto: o motor ajusta tamanho e posição até bater.
 """
 import argparse
@@ -22,11 +24,14 @@ def main():
     ap.add_argument("--largura", type=int, default=1080); ap.add_argument("--regiao", type=int, nargs=4)
     ap.add_argument("--min-alt", type=int, default=6); ap.add_argument("--juntar", type=int, default=3,
                     help="linhas separadas por até N px vazios viram uma só")
+    ap.add_argument("--corpo", type=float, default=0.25, help="densidade mínima (fração da linha mais cheia) para o corpo")
     a = ap.parse_args()
     im = Image.open(a.img).convert("RGB"); W0, H0 = im.size
     px = np.asarray(im, dtype=np.float32)
-    alvo = np.array([int(a.cor[i:i + 2], 16) for i in (1, 3, 5)], dtype=np.float32)
-    m = np.sqrt(((px - alvo) ** 2).sum(axis=2)) < a.tol
+    m = np.zeros(px.shape[:2], dtype=bool)
+    for c in a.cor.split(","):  # várias cores: "#FFFFFF,#3ED6A6" (linha com palavra destacada)
+        c = c.strip(); alvo = np.array([int(c[i:i + 2], 16) for i in (1, 3, 5)], dtype=np.float32)
+        m |= np.sqrt(((px - alvo) ** 2).sum(axis=2)) < a.tol
     if a.regiao:
         x1, y1, x2, y2 = a.regiao; z = np.zeros_like(m); z[y1:y2, x1:x2] = m[y1:y2, x1:x2]; m = z
     linhas_on = m.sum(axis=1) > max(2, m.shape[1] * 0.004)
@@ -48,7 +53,11 @@ def main():
         cols = np.where(m[ya:yb].sum(axis=0) > 0)[0]
         if len(cols) == 0: continue
         xa, xb = cols.min(), cols.max() + 1
-        res.append({"x": round(xa * k), "y": round(ya * k), "w": round((xb - xa) * k), "h": round((yb - ya) * k)})
+        # corpo = faixa densa da linha (altura de maiúscula em texto CAIXA ALTA): ignora acento, cedilha, vírgula, cauda do Q
+        cont = m[ya:yb].sum(axis=1); den = np.where(cont >= cont.max() * a.corpo)[0]
+        cy, cb = ya + den.min(), ya + den.max() + 1
+        res.append({"x": round(xa * k), "y": round(ya * k), "w": round((xb - xa) * k), "h": round((yb - ya) * k),
+                    "cy": round(cy * k), "ch": round((cb - cy) * k)})
         d.rectangle([xa, ya, xb, yb], outline=(255, 0, 0), width=2)
     saida = os.path.splitext(a.img)[0] + ".medidas.png"; prev.save(saida)
     print(json.dumps(res)); print(saida)
