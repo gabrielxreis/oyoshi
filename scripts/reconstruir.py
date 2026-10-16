@@ -85,7 +85,11 @@ def detectar_caixas(im, cx):
     px = sub.reshape(-1, 3); sat = px.max(1) - px.min(1); cand = px[sat > 90]
     if len(cand) < H_ * W_ * 0.05:
         return []
-    cor = np.median(cand, 0); mk = np.sqrt(((sub - cor) ** 2).sum(2)) < 70
+    cor = np.median(cand, 0)
+    anel = np.median(np.concatenate([sub[0], sub[-1], sub[:, 0], sub[:, -1]]), 0)
+    if np.sqrt(((cor - anel) ** 2).sum()) < 70:   # a "caixa" é o próprio fundo saturado (post azul): não é marca-texto
+        return []
+    mk = np.sqrt(((sub - cor) ** 2).sum(2)) < 70
     def maior_seq(idx, folga):
         if len(idx) == 0: return None
         mel, ini, ant = (idx[0], idx[0]), idx[0], idx[0]
@@ -252,6 +256,43 @@ def juntar_blocos(linhas, k, pequeno):
     return out
 
 
+def fundo_por_difusao(im, caixas_doc, k, saida, lim_std=7):
+    """Apaga texto em fundo LISO (degradê, cor chapada) por difusão global (média dos vizinhos válidos), sem as manchas
+    que o sensível ao conteúdo deixa em degradê. Devolve as caixas de fundo COM TEXTURA (vão para o sensível ao conteúdo)."""
+    a = np.asarray(im.convert("RGB")).astype(np.float32).copy(); H_, W_ = a.shape[:2]
+    rects = []
+    for c in caixas_doc:
+        x1, y1, x2, y2 = [int(round(v / k)) for v in c]; rects.append((max(0, x1 - 2), max(0, y1 - 2), min(W_, x2 + 2), min(H_, y2 + 2), c))
+    todas = np.zeros((H_, W_), bool)
+    for x1, y1, x2, y2, _ in rects: todas[y1:y2, x1:x2] = True
+    lisas, texturadas = np.zeros((H_, W_), bool), []
+    from PIL import ImageFilter
+    hf = np.abs(a - np.asarray(im.convert("RGB").filter(ImageFilter.GaussianBlur(3))).astype(np.float32)).max(2)
+    for x1, y1, x2, y2, c in rects:
+        if x2 - x1 < 3 or y2 - y1 < 3: continue
+        m_ = 8; X1, Y1, X2, Y2 = max(0, x1 - m_), max(0, y1 - m_), min(W_, x2 + m_), min(H_, y2 + m_)
+        anel = hf[Y1:Y2, X1:X2][~todas[Y1:Y2, X1:X2]]
+        # liso = pouco DETALHE FINO no anel (degradê largo tem variação grande mas detalhe ~0; foto tem textura)
+        if len(anel) < 20 or np.percentile(anel, 80) > lim_std:
+            texturadas.append(c); continue
+        lisas[y1:y2, x1:x2] = True
+    textura = todas & ~lisas
+    if lisas.any():
+        # semente: interpolação vertical a partir das linhas livres acima/abaixo de cada coluna, depois difusão
+        valido = (~lisas & ~textura).astype(np.float32)
+        b = a.copy(); b[lisas] = a[~todas].mean(0)
+        for _ in range(400):
+            num = np.zeros_like(b); den = np.zeros((H_, W_), np.float32)
+            for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                v = np.roll(valido, (dy, dx), (0, 1)); num += np.roll(b, (dy, dx), (0, 1)) * v[..., None]; den += v
+            novo = num / np.maximum(den, 1e-6)[..., None]
+            upd = lisas & (den > 0)                      # frente de onda: só quem já tem vizinho válido
+            b[upd] = novo[upd]; valido = np.where(upd, 1.0, valido)
+        a = b
+    Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)).save(saida)
+    return texturadas
+
+
 def roda(*cmd, timeout=600):
     return subprocess.run(list(cmd), capture_output=True, text=True, timeout=timeout).stdout
 
@@ -287,7 +328,8 @@ def main():
         if not txt or l["conf"] < 0.4: continue
         if zonas and not any(z[0] <= l["x"] + l["w"] / 2 <= z[2] and z[1] <= l["y"] + l["h"] / 2 <= z[3] for z in zonas):
             print(f"{txt[:30]:<30} fora das zonas de texto: fica na imagem (texto da foto)", flush=True); continue
-        if any(txt.lower() == g.strip().lower() for g in a.logos.split(",") if g.strip()):
+        norm = lambda s_: " ".join(s_.replace("\r", " ").replace("/", " ").lower().split())
+        if any(norm(txt) == norm(g) for g in a.logos.split(",") if g.strip()):
             print(f"{txt:<30} logo: fica como IMAGEM", flush=True); continue
         pad = max(2, int(l["h"] * (0.2 if l["h"] * k < a.pequeno else 0.35))); cx = (max(0, l["x"] - pad), max(0, l["y"] - pad), min(W0, l["x"] + l["w"] + pad), min(H0, l["y"] + l["h"] + pad))
         cxs_ = todas_caixas
@@ -305,7 +347,7 @@ def main():
         fonte, nota = a.fonte_texto, 1.0
         pj = max(2, int(l["h"] * 0.08)); cj = (max(0, l["x"] - pj), max(0, l["y"] - pj), min(W0, l["x"] + l["w"] + pj), min(H0, l["y"] + l["h"] + pj))
         import ciclo as _C   # recorte JUSTO pela medida (a caixa do Vision é folgada e invade a linha vizinha)
-        mj = _C.medir(a.ref, ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), list(cx))
+        mj = _C.medir(a.ref, ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), list(cx), 30 if l.get("n_linhas") else 3)
         if mj:
             cj = (max(0, int(mj["x"] / k) - 2), max(0, int(mj["y"] / k) - 2), min(W0, int((mj["x"] + mj["w"]) / k) + 3), min(H0, int((mj["y"] + mj["h"]) / k) + 3))
         out = "" if pequeno and a.fonte_texto else roda(PY, os.path.join(AQUI, "comparar_fonte.py"), a.ref, *map(str, cj), txt, "--cor", ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), "--top", "12", *(["--filtro", a.filtro] if a.filtro else []))
@@ -325,7 +367,10 @@ def main():
         itens.append(it_)
         if l.get("n_linhas"):
             passo = round(np.mean(np.diff(l["tops"])) * k, 1)
-        camadas.append({"nome": nome, "txt": txt, "cor": cor, "fonte": fonte, "faixas": fx, "caixa": [round(v * k) for v in cx],
+        cx_apagar = [round(v * k) for v in cx]
+        if mj:   # apaga só a caixa medida da linha (+4 px): a folga do OCR comia emoji e logo vizinhos
+            cx_apagar = [max(0, mj["x"] - 5), max(0, mj["y"] - 5), mj["x"] + mj["w"] + 5, mj["y"] + mj["h"] + 5]
+        camadas.append({"nome": nome, "txt": txt, "cor": cor, "fonte": fonte, "faixas": fx, "caixa": cx_apagar,
                         "passo": passo if l.get("n_linhas") else None,
                         "ranking": ranking, "alt": l["h"], "pequeno": pequeno, "esp": espessura(im, cj)})
     for c_ in todas_caixas:
@@ -363,13 +408,16 @@ def main():
                 if cor_: f["cor"] = cor_.strip()
                 c["faixas"] = [x for x in c["faixas"] if x["ate"] <= de_ or x["de"] >= ate_] + [f]; print(f"ajuste manual: {c['nome']} faixa {f}")
     json.dump({"ref": os.path.abspath(a.ref), "itens": itens}, open(os.path.join(a.pasta, "medidas.json"), "w"), ensure_ascii=False, indent=1)
+    todas_ap = [c["caixa"] for c in camadas] + [b_["caixa"] for b_ in caixas_mt] + (ui_instagram(a.largura, H) if a.limpar_ui else [])
+    pre = os.path.join(a.pasta, "fundo_pre_limpo.png"); texturadas = fundo_por_difusao(im, todas_ap, k, pre)
+    print(f"fundo: {len(todas_ap) - len(texturadas)} áreas lisas por difusão, {len(texturadas)} com textura para o sensível ao conteúdo", flush=True)
     js = [f"// Reconstruído automaticamente de {os.path.basename(a.ref)} (reconstruir.py): fundo limpo + textos vivos medidos.",
           f"var W = {a.largura}, H = {H}; Y.doc(W, H, {json.dumps(os.path.splitext(os.path.basename(a.ref))[0] + '-editavel')});",
           "var ALV = Y.lerJSON(PASTA + \"/alvos.json\");",
           "var gF = Y.grupo(\"FUNDO\");",
           f"var ref = Y.colocar({json.dumps(os.path.abspath(a.ref))}, \"REFERENCIA (original, oculta)\", gF, {{ x: 0, y: 0, w: W, h: H }}, \"cobrir\", \"centro\"); ref.visible = false;",
-          f"var limpo = Y.colocar({json.dumps(os.path.abspath(a.ref))}, \"FUNDO LIMPO (texto apagado)\", gF, {{ x: 0, y: 0, w: W, h: H }}, \"cobrir\", \"centro\");",
-          "limpo = Y.apagarAreas(limpo, " + json.dumps([c["caixa"] for c in camadas] + [b_["caixa"] for b_ in caixas_mt] + (ui_instagram(a.largura, H) if a.limpar_ui else [])) + ");",
+          f"var limpo = Y.colocar({json.dumps(pre)}, \"FUNDO LIMPO (texto apagado)\", gF, {{ x: 0, y: 0, w: W, h: H }}, \"cobrir\", \"centro\");",
+          ("limpo = Y.apagarAreas(limpo, " + json.dumps(texturadas) + ");") if texturadas else "",
           "var gT = Y.grupo(\"TEXTOS\");"]
     for j_, b_ in enumerate(caixas_mt):   # marca-texto como forma editável, atrás do texto
         x1_, y1_, x2_, y2_ = b_["caixa"]

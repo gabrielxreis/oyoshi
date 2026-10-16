@@ -94,3 +94,9 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - `virar_template.py`: lê o PSD reconstruído (tamanho, tracking, posição) + `camadas.json` do reconstruir (fonte-base, negrito, destaque declarados) e gera `template.jsx`; `Y.marcacao` entende `**negrito**` e `{{destaque}}`. Radiologia -> Enfermagem e Fisioterapia, idênticas no estilo (painel em `Calverstone Advisors/design/artes/2026-10-16-reconstrucao-radiologia/painel-template.png`).
 - Bug de verdade achado no motor: no `Y.faixas`, os vãos entre faixas não levavam fonte e o Photoshop caía na Myriad Pro ("nos" em Myriad no meio de Montserrat). Agora levam a fonte da camada.
 - Negrito por erosão calibrado com caixa refinada: corte fixo 0,12 (Bold 0,15-0,30; Regular até 0,09 com maiúscula inicial).
+
+## 2026-10-16 05h: fundo limpo por difusão (sem mancha) e caixa falsa
+- Post azul (13 mil): o sensível ao conteúdo deixava retângulos escuros sobre o degradê. Agora `fundo_por_difusao` (Python) apaga o texto em fundo liso com difusão global (frente de onda, só vizinhos válidos, áreas com textura fora da média); o sensível ao conteúdo fica só para fundo com textura. Critério de "liso" = pouco detalhe fino no anel (imagem menos desfoque de 3 px), porque degradê largo tem variação grande mas detalhe ~0. Resultado: 10 de 11 áreas por difusão, fundo impecável.
+- Caixa marca-texto falsa (o próprio fundo azul saturado): a caixa agora precisa ter cor diferente do fundo da linha.
+- Área apagada = caixa medida justa + 5 px (a folga do OCR comia logo e emoji vizinhos). Logos com quebra de linha normalizados.
+- Erros desta rodada: valor zero de pixel sem vizinho virou "válido" e espalhou preto (corrigido com frente de onda).
