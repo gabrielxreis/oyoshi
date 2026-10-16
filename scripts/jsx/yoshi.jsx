@@ -25,8 +25,8 @@ var Y = (function () {
   };
   Y.usar = function (doc) { D = doc || app.activeDocument; app.preferences.rulerUnits = Units.PIXELS; app.preferences.typeUnits = TypeUnits.PIXELS; return D; };
   Y.grupo = function (nome, pai) {
-    var g = D.layerSets.add(); g.name = nome;
-    if (pai) g.move(pai, ElementPlacement.PLACEATBEGINNING); else g.move(D, ElementPlacement.PLACEATBEGINNING);
+    var g = pai ? pai.layerSets.add() : D.layerSets.add(); g.name = nome;
+    if (!pai) g.move(D, ElementPlacement.PLACEATBEGINNING);
     return g;
   };
   Y.misturar = function (l, modo, opacidade) { if (modo) l.blendMode = MODOS[modo]; if (opacidade !== undefined) l.opacity = opacidade; return l; };
@@ -248,6 +248,29 @@ var Y = (function () {
     var bb = b(foto), ang = lado === "esq" ? 0 : 180;
     var luz = Y.degrade([[corLuz, 0, 100], [corLuz, 35, 0]], ang, "LUZ DE BORDA (" + foto.name + ")", g, "screen", 55); luz.move(amb, ElementPlacement.PLACEBEFORE); Y.recorte(luz);
     return foto;
+  };
+  // Linha com trechos MARCADOS (caixa colorida atrás de palavras), estilo "SEU [CURRÍCULO MÉDICO]".
+  // partes: [{t:"SEU ", fonte:"Owners-Light"}, {t:"CURRÍCULO MÉDICO", fonte:"Owners-Bold", marca:"#FF5A12"}]
+  // o: {px, cor, x (centro ou esquerda), y (topo), alinh:"centro"|"esq", pad:[horizontal, vertical], tracking}
+  Y.linhaMarcada = function (partes, o, g) {
+    var gl = g ? g.layerSets.add() : D.layerSets.add(); gl.name = o.nome || "LINHA";
+    var camadas = [], larg = 0, alt = 0, i, pad = o.pad || [12, 6];
+    for (i = 0; i < partes.length; i++) {
+      var p = partes[i];
+      var l = Y.texto({ txt: p.t.replace(/ $/, " "), nome: p.t, fonte: p.fonte || o.fonte, px: o.px, cor: p.cor || o.cor || "#FFFFFF", tracking: o.tracking || 0, x: 0, y: 0 }, gl);
+      var bb = b(l); camadas.push({ l: l, w: bb.w, h: bb.h, p: p }); larg += bb.w + (p.marca ? 2 * pad[0] : 0); alt = Math.max(alt, bb.h);
+    }
+    var x0 = o.alinh === "esq" ? o.x : o.x - larg / 2;
+    for (i = 0; i < camadas.length; i++) {
+      var c = camadas[i], dx = c.p.marca ? pad[0] : 0;
+      Y.ancorar(c.l, x0 + dx, o.y + (alt - c.h), "tl");
+      if (c.p.marca) {
+        var r = Y.retangulo({ x: x0, y: o.y - pad[1], w: c.w + 2 * pad[0], h: alt + 2 * pad[1], cor: c.p.marca, nome: "MARCA " + c.p.t }, gl);
+        r.move(c.l, ElementPlacement.PLACEAFTER);
+      }
+      x0 += c.w + 2 * dx;
+    }
+    return gl;
   };
   // Brilho radial suave (luz atrás do objeto/pessoa): elipse com difusão grande em camada própria.
   Y.brilho = function (cx, cy, rx, ry, hex, op, g, modo) {
