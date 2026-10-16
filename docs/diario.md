@@ -58,3 +58,9 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - Tela do celular: degradê com cores AMOSTRADAS ao longo do eixo da tela do original.
 - `medir_objeto.py --retangulo`: em objeto de borda reta segurado, o PCA erra (10,1° x 7,9° reais) porque a mão entra na seleção. Ajuste das bordas esquerda/direita por regressão nas faixas sem dedo + centro da borda de cima. `Y.alinharRetangulo` e `Y.retanguloGirado` usam isso (celular desenhado em vetor, mão da foto por cima).
 - Erro de leitura meu: conferi o topo numa prévia reduzida e achei que estava 40 px fora; no tamanho real o ponto caía certo. Conferir sempre na resolução nativa.
+
+## 2026-10-16 04h: laboratório de técnicas (pedido do Gabriel: "aprenda coisa de verdade")
+- Descoberta grande: o binário do Photoshop traz o dicionário de terminologia inteiro (eventos, classes, chaves, tipos). Extraído para `docs/catalogo/local/terminologia*.txt`.
+- Testadas e incorporadas ao Y: Mesclar se, glitch por restrição de canal, LUT por arquivo, mapa de deslocamento, texto em arco.
+- Warp personalizado: descobri o formato lendo de volta um warp Arco (`meshPoints`, não `points` como diz a terminologia), mas o resultado na tela depende da origem da camada. Mockup ficou com `perspectiva.py` (homografia exata em Python) e saiu perfeito: arte da Bora na tela do celular, dedos por cima.
+- Ver `docs/tecnicas.md`.

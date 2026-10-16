@@ -513,6 +513,78 @@ var Y = (function () {
     app.activeDocument = orig; D = orig; return n;
   };
   Y.bounds = function (l) { var bb = b(l); return bb.x + "," + bb.y + "," + bb.w + "," + bb.h; };
+  // ---------- técnicas do laboratório (engenharia reversa 16/10/2026, docs/tecnicas.md) ----------
+  function setCamada(l, chave, tipo, v) { D.activeLayer = l; var lay = new ActionDescriptor();
+    if (tipo === "lista") lay.putList(s(chave), v); var a = new ActionDescriptor(); a.putReference(s("null"), refAtiva()); a.putObject(s("to"), s("layer"), lay); executeAction(s("set"), a, DialogModes.NO); }
+  Y.inteligente = function (l) { D.activeLayer = l; executeAction(s("newPlacedLayer"), new ActionDescriptor(), DialogModes.NO); return D.activeLayer; };
+  // EXPERIMENTAL (resultado depende de onde a camada nasceu; para mockup use scripts/perspectiva.py, exato).
+  // Distorção por 4 cantos (perspectiva/mockup): cantos = [[x,y] sup-esq, sup-dir, inf-dir, inf-esq]. Converte em objeto
+  // inteligente (continua editável: duplo clique troca a arte). USAR A CAMADA DEVOLVIDA (a antiga fica dentro do novo SO). Malha Bézier 4x4 por homografia = perspectiva real.
+  // Formato descoberto lendo smartObjectMore.warp: warpCustom + bounds classFloatRect + customEnvelopeWarp.meshPoints.
+  Y.perspectiva = function (l, c, manterPixels) {
+    // 1) encaixa na caixa do quadrilátero (o warp erra muito quando a camada está longe/maior que o destino)
+    var qx = Math.min(c[0][0], c[1][0], c[2][0], c[3][0]), qy = Math.min(c[0][1], c[1][1], c[2][1], c[3][1]);
+    var qw = Math.max(c[0][0], c[1][0], c[2][0], c[3][0]) - qx, qh = Math.max(c[0][1], c[1][1], c[2][1], c[3][1]) - qy;
+    var bb = b(l); l.resize(qw / bb.w * 100, qh / bb.h * 100, AnchorPosition.MIDDLECENTER); bb = b(l); l.translate(qx - bb.x, qy - bb.y);
+    if (!manterPixels) l = Y.inteligente(l);
+    aplicarMalha(l, c); return l;
+  };
+  Y._malha = function (l, c) { aplicarMalha(l, c); return l; };
+  // Malha Bézier 4x4 por homografia (quadrado -> quadrilátero). Formato lido de smartObjectMore.warp:
+  // warpCustom + bounds classFloatRect + customEnvelopeWarp.meshPoints (rationalPoint em pixels).
+  function aplicarMalha(l, c) {
+    D.activeLayer = l; var bb = b(l);
+    var x0 = c[0][0], y0 = c[0][1], x1 = c[1][0], y1 = c[1][1], x2 = c[2][0], y2 = c[2][1], x3 = c[3][0], y3 = c[3][1];
+    var dx1 = x1 - x2, dx2 = x3 - x2, dy1 = y1 - y2, dy2 = y3 - y2, sx = x0 - x1 + x2 - x3, sy = y0 - y1 + y2 - y3;
+    var den = dx1 * dy2 - dx2 * dy1, g = (sx * dy2 - dx2 * sy) / den, h = (dx1 * sy - sx * dy1) / den;
+    var A = x1 - x0 + g * x1, B = x3 - x0 + h * x3, C = y1 - y0 + g * y1, E = y3 - y0 + h * y3;
+    function H(u, v) { var w = g * u + h * v + 1; return [(A * u + B * v + x0) / w, (C * u + E * v + y0) / w]; }
+    var lst = new ActionList();
+    for (var j = 0; j < 4; j++) for (var i = 0; i < 4; i++) { var p = H(i / 3, j / 3), pt = new ActionDescriptor();
+      pt.putUnitDouble(s("horizontal"), s("pixelsUnit"), p[0]); pt.putUnitDouble(s("vertical"), s("pixelsUnit"), p[1]); lst.putObject(s("rationalPoint"), pt); }
+    var env = new ActionDescriptor(); env.putList(s("meshPoints"), lst);
+    var rc = new ActionDescriptor(); rc.putDouble(s("top"), bb.y); rc.putDouble(s("left"), bb.x); rc.putDouble(s("bottom"), bb.y + bb.h); rc.putDouble(s("right"), bb.x + bb.w);
+    var w = new ActionDescriptor(); w.putEnumerated(s("warpStyle"), s("warpStyle"), s("warpCustom")); w.putDouble(s("warpValue"), 0); w.putDouble(s("warpPerspective"), 0); w.putDouble(s("warpPerspectiveOther"), 0);
+    w.putEnumerated(s("warpRotate"), s("orientation"), s("horizontal")); w.putObject(s("bounds"), s("classFloatRect"), rc); w.putInteger(s("uOrder"), 4); w.putInteger(s("vOrder"), 4);
+    w.putObject(s("customEnvelopeWarp"), s("customEnvelopeWarp"), env);
+    var a = new ActionDescriptor(); a.putReference(s("null"), refAtiva()); a.putEnumerated(s("freeTransformCenterState"), s("quadCenterState"), s("QCSAverage")); a.putObject(s("warp"), s("warp"), w);
+    executeAction(s("transform"), a, DialogModes.NO);
+  }
+  // Mesclar se (Blend If): esta = [pretoA, pretoB, brancoA, brancoB] da própria camada; baixo = idem da camada de baixo.
+  // Ex.: texto que some nas luzes da foto: Y.mesclarSe(t, null, [0, 0, 60, 140]). Valores divididos = transição suave.
+  Y.mesclarSe = function (l, esta, baixo) {
+    esta = esta || [0, 0, 255, 255]; baixo = baixo || [0, 0, 255, 255];
+    var br = new ActionDescriptor(), cr = new ActionReference(); cr.putEnumerated(s("channel"), s("channel"), s("gray")); br.putReference(s("channel"), cr);
+    var k = ["srcBlackMin", "srcBlackMax", "srcWhiteMin", "srcWhiteMax", "destBlackMin", "destBlackMax", "destWhiteMin", "destWhiteMax"], v = esta.concat(baixo);
+    for (var i = 0; i < 8; i++) br.putInteger(s(k[i]), v[i]);
+    var lst = new ActionList(); lst.putObject(s("blendRange"), br); setCamada(l, "blendRange", "lista", lst); return l;
+  };
+  // Restrição de canais (Opções de mesclagem > Canais): glitch RGB = cópias só no R / só no G-B, deslocadas.
+  Y.canais = function (l, lista) { var lst = new ActionList(); for (var i = 0; i < lista.length; i++) lst.putEnumerated(s("channel"), s(lista[i])); setCamada(l, "channelRestrictions", "lista", lst); return l; };
+  Y.glitch = function (l, dx, g) {
+    var r = l.duplicate(); r.name = "GLITCH R"; Y.canais(r, ["red"]); r.translate(dx, 0);
+    var c = l.duplicate(); c.name = "GLITCH GB"; Y.canais(c, ["green", "blue"]); c.translate(-dx, 0); return [r, c];
+  };
+  // LUT de cor (camada de ajuste Pesquisa de cores) a partir de .cube/.3dl/.look. Os do Photoshop: Y.LUTS + "Candlelight.CUBE".
+  Y.LUTS = "/Applications/Adobe Photoshop 2026/Presets/3DLUTs/";
+  Y.lut = function (arquivo, nome, g, op) {
+    var a = new ActionDescriptor(); a.putPath(s("from"), new File(arquivo.indexOf("/") < 0 ? Y.LUTS + arquivo : arquivo)); a.putString(s("name"), nome || "LUT");
+    executeAction(s("makerColorLookupLayerFromFile"), a, DialogModes.NO); var l = D.activeLayer; nomeia(l, nome || "LUT"); if (op !== undefined) l.opacity = op; return entra(l, g);
+  };
+  // Mapa de deslocamento a partir de uma imagem (tecido, parede, água): cinza + desfoque, salvo como PSD.
+  Y.criarMapa = function (imagem, saidaPsd, desfoque) {
+    var orig = D, m = app.open(new File(imagem)); m.flatten(); m.changeMode(ChangeMode.GRAYSCALE); m.activeLayer.applyGaussianBlur(desfoque || 4);
+    var f = new File(saidaPsd); m.saveAs(f, new PhotoshopSaveOptions(), true); m.close(SaveOptions.DONOTSAVECHANGES); app.activeDocument = orig; D = orig; return f;
+  };
+  // Deslocamento (filtro inteligente): texto/arte acompanha as dobras do mapa. escala 10-40.
+  Y.deslocar = function (l, mapa, eh, ev) {
+    if (l.kind !== LayerKind.SMARTOBJECT) l = Y.inteligente(l); D.activeLayer = l;
+    var a = new ActionDescriptor(); a.putInteger(s("horizontalScale"), eh); a.putInteger(s("verticalScale"), ev === undefined ? eh : ev);
+    a.putEnumerated(s("displacementMap"), s("displacementMap"), s("stretchToFit")); a.putEnumerated(s("undefinedArea"), s("undefinedArea"), s("repeatEdgePixels"));
+    a.putPath(s("displaceFile"), mapa instanceof File ? mapa : new File(mapa)); executeAction(s("displace"), a, DialogModes.NO); return l;
+  };
+  // Texto em arco (deformação de texto, continua editável). valor -100..100.
+  Y.arco = function (l, valor, estilo) { l.textItem.warpStyle = estilo || WarpStyle.ARC; l.textItem.warpBend = valor; return l; };
   Y.D = function () { return D; };
   // Lê um JSON (alvos.json do ciclo.py, preset.json da marca). ExtendScript não tem JSON nativo confiável.
   Y.lerJSON = function (caminho) { var f = new File(caminho); f.encoding = "UTF-8"; if (!f.exists) return {}; f.open("r"); var t = f.read(); f.close(); return eval("(" + t + ")"); };
