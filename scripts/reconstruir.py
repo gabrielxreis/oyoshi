@@ -126,6 +126,7 @@ def caixa_cor(im, cor, w, linha_cx, k):
 
 
 IGNORAR = []
+TODA_NEGRITO = [False]
 
 
 def espessura(im, cx):
@@ -190,7 +191,9 @@ def faixas_palavras(im, linha, cor_linha, fonte_neg):
         tinta = d > max(60, d.max() * 0.35)   # 35%: verde sobre escuro tem metade do contraste do branco
         # espessura do traço: fração da tinta que sobrevive a uma erosão de 1 px (negrito ~0,11-0,16; regular ~0-0,03)
         from PIL import ImageFilter
-        er = np.asarray(Image.fromarray((tinta * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(3))) > 0
+        # erosão proporcional à altura (calibrado em linha de ~22 px = 1 px): mesmo critério em texto pequeno e grande
+        rr = max(1, int(round(sub.shape[0] * 0.045)))
+        er = np.asarray(Image.fromarray((tinta * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(2 * rr + 1))) > 0
         dens = er.sum() / max(1, tinta.sum())
         f_ = tinta_por_forma(sub, d, borda) if sub.shape[0] > 6 and sub.shape[1] > 6 else None
         cor = f_ if f_ is not None else (cor_majoritaria(sub[tinta], borda) if tinta.any() else borda)
@@ -201,6 +204,7 @@ def faixas_palavras(im, linha, cor_linha, fonte_neg):
     # negrito: sobrevivência à erosão > 0,12 (calibrado: Montserrat Bold 0,15-0,30; Regular <= 0,09 mesmo com maiúscula)
     if len(ds) > 1 and ds[-1] > 0.12 and ds[0] < 0.12:
         corte = 0.12
+    TODA_NEGRITO[0] = bool(ds) and ds[0] > 0.12 and len(ds) >= 1   # linha inteira em negrito
     # cor-base = a cor da MAIORIA das palavras (pesada pela largura), não a mediana da linha (o vermelho puxava)
     larguras = [w["w"] for w, x in zip(pal, info) if x]; cores = [x[1] for x in ok]
     def grupo(c): return sum(lw for lw, o in zip(larguras, cores) if np.sqrt(((o - c) ** 2).sum()) < 60)
@@ -326,16 +330,25 @@ def main():
         for par in [x for x in a.corrigir.split(";") if "=" in x]:   # erros de leitura do OCR: "para or=para o"
             de_, para_ = par.split("=", 1); txt = txt.replace(de_, para_)
         if not txt or l["conf"] < 0.4: continue
+        if abs(l.get("angulo", 0)) > 3:
+            print(f"{txt[:30]:<30} torto ({l['angulo']:.1f}°): texto da foto, fica na imagem", flush=True); continue
         if zonas and not any(z[0] <= l["x"] + l["w"] / 2 <= z[2] and z[1] <= l["y"] + l["h"] / 2 <= z[3] for z in zonas):
             print(f"{txt[:30]:<30} fora das zonas de texto: fica na imagem (texto da foto)", flush=True); continue
         norm = lambda s_: " ".join(s_.replace("\r", " ").replace("/", " ").lower().split())
         if any(norm(txt) == norm(g) for g in a.logos.split(",") if g.strip()):
             print(f"{txt:<30} logo: fica como IMAGEM", flush=True); continue
-        pad = max(2, int(l["h"] * (0.2 if l["h"] * k < a.pequeno else 0.35))); cx = (max(0, l["x"] - pad), max(0, l["y"] - pad), min(W0, l["x"] + l["w"] + pad), min(H0, l["y"] + l["h"] + pad))
+        pad = max(2, int(l["h"] * (0.2 if l["h"] * k < a.pequeno else 0.35)))
+        # folga vertical limitada à metade do vão até a linha vizinha (linhas coladas mediam juntas: altura-x somada)
+        viz = [o for o in linhas if o is not l and o["x"] < l["x"] + l["w"] and l["x"] < o["x"] + o["w"]]
+        cima = min([l["y"] - (o["y"] + o["h"]) for o in viz if o["y"] + o["h"] <= l["y"] + l["h"] * 0.3] or [999])
+        baixo = min([o["y"] - (l["y"] + l["h"]) for o in viz if o["y"] >= l["y"] + l["h"] * 0.7] or [999])
+        pc, pb = max(1, min(pad, int(max(0, cima) / 2))), max(1, min(pad, int(max(0, baixo) / 2)))
+        cx = (max(0, l["x"] - pad), max(0, l["y"] - pc), min(W0, l["x"] + l["w"] + pad), min(H0, l["y"] + l["h"] + pb))
         cxs_ = todas_caixas
         cor, _ = cor_tinta(im, cx, [c_["rgb"] for c_ in cxs_])
-        nome = f"L{i + 1:02d} {txt.replace(chr(13), ' / ')[:22]}"
-        IGNORAR[:] = [c_["rgb"] for c_ in cxs_]
+        nome = f"L{i + 1:02d}"   # chave SÓ ASCII: acento/travessão na chave não casava depois do AppleScript (alvo vazio)
+        rotulo = f"{nome} {txt.replace(chr(13), ' / ')[:22]}"
+        IGNORAR[:] = [c_["rgb"] for c_ in cxs_]; TODA_NEGRITO[0] = False
         l["palavras"] = refinar_palavras(im, l)
         fx, cor_base, cxs = faixas_palavras(im, l, cor, a.fonte_negrito if (l["h"] * k < a.pequeno) else None) if len(l.get("palavras") or []) > 1 else ([], cor, [])
 
@@ -344,12 +357,14 @@ def main():
             for f in fx:
                 if f.get("cor") and np.sqrt(sum((int(f["cor"][i:i + 2], 16) - int(cor[i:i + 2], 16)) ** 2 for i in (1, 3, 5))) <= 70: f.pop("cor")
         pequeno = l["h"] * k < a.pequeno
-        fonte, nota = a.fonte_texto, 1.0
+        fonte, nota = (a.fonte_negrito if (TODA_NEGRITO[0] and a.fonte_negrito and pequeno) else a.fonte_texto), 1.0
         pj = max(2, int(l["h"] * 0.08)); cj = (max(0, l["x"] - pj), max(0, l["y"] - pj), min(W0, l["x"] + l["w"] + pj), min(H0, l["y"] + l["h"] + pj))
         import ciclo as _C   # recorte JUSTO pela medida (a caixa do Vision é folgada e invade a linha vizinha)
-        mj = _C.medir(a.ref, ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), list(cx), 30 if l.get("n_linhas") else 3)
+        mj = _C.medir(a.ref, ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), list(cx), 30 if l.get("n_linhas") else 1,
+                      None if l.get("n_linhas") else (l["y"] + l["h"] / 2) * k)
         if mj:
-            cj = (max(0, int(mj["x"] / k) - 2), max(0, int(mj["y"] / k) - 2), min(W0, int((mj["x"] + mj["w"]) / k) + 3), min(H0, int((mj["y"] + mj["h"]) / k) + 3))
+            # vertical EXATO (sem folga): 2-3 px a mais já pegavam o topo da linha de baixo e mudavam a proporção
+            cj = (max(0, int(mj["x"] / k) - 2), max(0, int(mj["y"] / k)), min(W0, int((mj["x"] + mj["w"]) / k) + 3), min(H0, int(np.ceil((mj["y"] + mj["h"]) / k))))
         out = "" if pequeno and a.fonte_texto else roda(PY, os.path.join(AQUI, "comparar_fonte.py"), a.ref, *map(str, cj), txt, "--cor", ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), "--top", "12", *(["--filtro", a.filtro] if a.filtro else []))
         ranking = {}
         for ln in out.strip().splitlines():
@@ -360,9 +375,9 @@ def main():
             fonte = max(ranking, key=ranking.get); nota = ranking[fonte]
         if nota < a.nota_min:   # nenhuma fonte parecida: é logo/lettering -> fica como imagem do fundo
             print(f"{txt[:30]:<30} nota {nota:.2f}: fica como IMAGEM (logo/lettering)", flush=True); continue
-        print(f"{nome:<30} cor {cor}  fonte {fonte} ({nota:.2f})", flush=True)
+        print(f"{rotulo:<30} cor {cor}  fonte {fonte} ({nota:.2f})", flush=True)
         cores_med = ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")}))   # mede a linha com TODAS as cores dela
-        it_ = {"nome": nome, "texto": txt, "cor": cores_med, "regiao": list(cx)}
+        it_ = {"nome": nome, "texto": txt, "cor": cores_med, "regiao": list(cx), "centro_y": None if l.get("n_linhas") else round((l["y"] + l["h"] / 2) * k)}
         if l.get("n_linhas"): it_["juntar"] = 30; it_["bloco"] = True
         itens.append(it_)
         if l.get("n_linhas"):
@@ -370,7 +385,7 @@ def main():
         cx_apagar = [round(v * k) for v in cx]
         if mj:   # apaga só a caixa medida da linha (+4 px): a folga do OCR comia emoji e logo vizinhos
             cx_apagar = [max(0, mj["x"] - 5), max(0, mj["y"] - 5), mj["x"] + mj["w"] + 5, mj["y"] + mj["h"] + 5]
-        camadas.append({"nome": nome, "txt": txt, "cor": cor, "fonte": fonte, "faixas": fx, "caixa": cx_apagar,
+        camadas.append({"nome": nome, "rotulo": rotulo, "txt": txt, "cor": cor, "fonte": fonte, "faixas": fx, "caixa": cx_apagar,
                         "passo": passo if l.get("n_linhas") else None,
                         "ranking": ranking, "alt": l["h"], "pequeno": pequeno, "esp": espessura(im, cj)})
     for c_ in todas_caixas:
@@ -378,11 +393,14 @@ def main():
     for c in camadas: print(f"   espessura {c['nome'][:24]:<24} {c['esp']:.3f}")
     # linhas grandes de altura parecida (±18%) = mesmo bloco de título: mesma fonte, a de maior soma de notas
     grandes = [c for c in camadas if not c["pequeno"] and c["ranking"]]
+    def top(c_, n_=4): return set(sorted(c_["ranking"], key=c_["ranking"].get, reverse=True)[:n_])
+    def parecidas(d, c):   # só votam juntas linhas em que a 1ª fonte de uma está entre as 4 melhores da outra (mesmo peso)
+        return d is c or (max(d["ranking"], key=d["ranking"].get) in top(c) and max(c["ranking"], key=c["ranking"].get) in top(d))
     usados_ = set()
     for c in grandes:
         if id(c) in usados_: continue
         bloco = [d for d in grandes if abs(d["alt"] - c["alt"]) <= c["alt"] * 0.18
-                 and min(d["esp"], c["esp"]) / max(d["esp"], c["esp"], 1e-6) > 0.6]   # só linhas de traço parecido (fina x pesada não votam juntas)
+                 and parecidas(d, c)]   # só linhas de traço parecido (fina x pesada não votam juntas)
         for d in bloco: usados_.add(id(d))
         if len(bloco) > 1:
             soma = {}
@@ -395,18 +413,28 @@ def main():
     for par in [x for x in a.fonte_linha.split(";") if "=" in x]:
         n_, f_ = par.split("=", 1)
         for c in camadas:
-            if c["nome"].startswith(n_.strip() + " "): c["fonte"] = f_.strip(); print(f"ajuste manual: {c['nome']} -> {f_}")
+            if c["nome"] == n_.strip(): c["fonte"] = f_.strip(); print(f"ajuste manual: {c['nome']} -> {f_}")
     # --estilo "L03:6-14=OwnersWide-Bold" (faixa de caracteres com outra fonte; cor opcional depois de @: "...=Fonte@#FF0000")
     for par in [x for x in a.estilo.split(";") if ":" in x and "=" in x]:
         n_, resto = par.split(":", 1); faixa_, fonte_ = resto.split("=", 1); de_, ate_ = map(int, faixa_.split("-"))
         cor_ = None
         if "@" in fonte_: fonte_, cor_ = fonte_.split("@", 1)
         for c in camadas:
-            if c["nome"].startswith(n_.strip() + " "):
+            if c["nome"] == n_.strip():
                 f = {"de": de_, "ate": ate_}
                 if fonte_: f["fonte"] = fonte_.strip()
                 if cor_: f["cor"] = cor_.strip()
                 c["faixas"] = [x for x in c["faixas"] if x["ate"] <= de_ or x["de"] >= ate_] + [f]; print(f"ajuste manual: {c['nome']} faixa {f}")
+    # coerência de família: linha vizinha de outra família parecida (peso diferente) puxa para a família do bloco
+    fam = lambda f_: f_.split("-")[0]
+    for i, c in enumerate(camadas):
+        if c["pequeno"] or not c["ranking"]: continue
+        vizinhas = [camadas[j]["fonte"] for j in (i - 2, i - 1, i + 1, i + 2) if 0 <= j < len(camadas) and not camadas[j]["pequeno"]]
+        if not vizinhas or fam(c["fonte"]) in {fam(v) for v in vizinhas}: continue
+        melhor = max(c["ranking"].values())
+        mesma = {f_: v for f_, v in c["ranking"].items() if fam(f_) in {fam(v_) for v_ in vizinhas} and v >= melhor - 0.08}
+        if mesma:
+            novo = max(mesma, key=mesma.get); print(f"família: {c['nome'][:24]} {c['fonte']} -> {novo} (vizinhas {sorted({fam(v) for v in vizinhas})})"); c["fonte"] = novo
     json.dump({"ref": os.path.abspath(a.ref), "itens": itens}, open(os.path.join(a.pasta, "medidas.json"), "w"), ensure_ascii=False, indent=1)
     todas_ap = [c["caixa"] for c in camadas] + [b_["caixa"] for b_ in caixas_mt] + (ui_instagram(a.largura, H) if a.limpar_ui else [])
     pre = os.path.join(a.pasta, "fundo_pre_limpo.png"); texturadas = fundo_por_difusao(im, todas_ap, k, pre)
@@ -427,7 +455,7 @@ def main():
         if c.get("passo"):   # bloco de várias linhas: largura + entrelinha medida
             fxs += f", entrelinha: {c['passo']}"
             c["nome_alvo"] = f"Y.mesclar(ALV[{json.dumps(c['nome'], ensure_ascii=False)}], {{ por: \"largura\", passo: {c['passo']} }})"
-        js.append(f"Y.texto({{ txt: {json.dumps(c['txt'], ensure_ascii=False)}, nome: {json.dumps(c['nome'], ensure_ascii=False)}, fonte: {json.dumps(c['fonte'])}, px: 40, cor: {json.dumps(c['cor'])}, tracking: 0{fxs}, alvo: {c.get('nome_alvo') or 'ALV[' + json.dumps(c['nome'], ensure_ascii=False) + ']'} }}, gT);")
+        js.append(f"Y.texto({{ txt: {json.dumps(c['txt'], ensure_ascii=False)}, nome: {json.dumps(c['rotulo'], ensure_ascii=False)}, fonte: {json.dumps(c['fonte'])}, px: 40, cor: {json.dumps(c['cor'])}, tracking: 0{fxs}, alvo: {c.get('nome_alvo') or 'ALV[' + json.dumps(c['nome'], ensure_ascii=False) + ']'} }}, gT);")
     js += ["Y.salvar(SAIDA + \"/editavel.psd\", SAIDA + \"/editavel.png\");", "\"ok\";"]
     open(os.path.join(a.pasta, "arte.jsx"), "w").write("\n".join(js) + "\n")
     json.dump([{"nome": c["nome"], "fonte": c["fonte"], "cor": c["cor"],

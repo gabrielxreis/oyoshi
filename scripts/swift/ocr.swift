@@ -28,7 +28,10 @@ for obs in (req.results ?? []) {
             palavras.append(["p": sub, "i": ini, "n": sub.count, "x": Int(wb.minX * W), "y": Int((1 - wb.maxY) * H), "w": Int(wb.width * W), "h": Int(wb.height * H)])
         }
     }
-    out.append(["texto": c.string, "conf": Double(c.confidence), "palavras": palavras,
+    // inclinação da linha pelos cantos do retângulo (texto impresso na foto costuma vir torto/em perspectiva)
+    let dxA = Double(obs.topRight.x - obs.topLeft.x) * Double(W), dyA = Double(obs.topRight.y - obs.topLeft.y) * Double(H)
+    let ang = atan2(dyA, dxA) * 180 / Double.pi
+    out.append(["texto": c.string, "conf": Double(c.confidence), "palavras": palavras, "angulo": ang,
                 "x": Int(b.minX * W), "y": Int((1 - b.maxY) * H), "w": Int(b.width * W), "h": Int(b.height * H)])
 }
 out.sort { ($0["y"] as! Int) < ($1["y"] as! Int) }

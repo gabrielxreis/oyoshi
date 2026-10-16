@@ -36,8 +36,9 @@ def main():
         base_f, base_c = max(conta, key=conta.get)   # estilo da MAIORIA dos caracteres
         neg = next((fonte_run(r) for r in runs if fonte_run(r) != base_f), None)
         dest = next((cor_run(r) for r in runs if cor_run(r) != base_c), None)
-        if l.name in decl:   # estilo declarado pelo reconstruir (mais confiável que os trechos do PSD)
-            dd = decl[l.name]; base_f, base_c, neg, dest = dd["fonte"], dd["cor"], dd["negrito"], dd["destaque"]
+        chave = l.name.split(" ")[0]
+        if chave in decl or l.name in decl:   # estilo declarado pelo reconstruir (mais confiável que os trechos do PSD)
+            dd = decl.get(chave) or decl[l.name]; base_f, base_c, neg, dest = dd["fonte"], dd["cor"], dd["negrito"], dd["destaque"]
         x1, y1, x2, y2 = l.bbox; cx = (x1 + x2) / 2
         alinh = "centro" if abs(cx - W / 2) < W * 0.04 else ("esq" if x1 < W - x2 else "dir")
         linhas.append({"id": l.name.split(" ")[0], "nome": l.name, "texto": l.text.replace("\r", "\\n"), "fonte": base_f,

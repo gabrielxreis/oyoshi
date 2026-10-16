@@ -100,3 +100,14 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
 - Caixa marca-texto falsa (o próprio fundo azul saturado): a caixa agora precisa ter cor diferente do fundo da linha.
 - Área apagada = caixa medida justa + 5 px (a folga do OCR comia logo e emoji vizinhos). Logos com quebra de linha normalizados.
 - Erros desta rodada: valor zero de pixel sem vizinho virou "válido" e espalhou preto (corrigido com frente de onda).
+
+## 2026-10-16 05h (b): lote de 10 posts e o que ele ensinou
+- Lote em `_laboratorio/lote_reconstrucao.sh` (10 posts de 4 marcas, ~1 min cada). Saíram bem: greencard, o-que-falta, tecnologia, carreira (Bora), AGM, currículo médico; com defeito: jornal, quanto-ganha (texto da foto do celular), visa-bulletin (texto do passaporte), 13 mil.
+- Correções:
+  - OCR devolve o ângulo da linha; linha torta (> 3°) é texto impresso na foto e fica na imagem.
+  - Chave dos alvos só ASCII (L01, L02...): rótulo com acento/travessão não casava depois de passar pelo AppleScript e o texto nascia sem alvo (tamanho 40, no canto).
+  - Folga vertical limitada à metade do vão até a linha vizinha; medição do remake com junção mínima e pela linha mais perto do centro esperado (linhas coladas eram medidas juntas e o ciclo divergia).
+  - O ciclo guarda o melhor alvo de cada linha, trava correções absurdas e monta o PSD final com os melhores.
+  - Negrito por erosão proporcional à altura (texto grande regular passava por negrito).
+  - Voto de fonte só entre linhas em que a 1ª fonte de uma está entre as 4 da outra (Light não vota com Bold).
+- Em texto de corpo grande (> 56 px no doc), passar `--pequeno 110` para usar a fonte de texto da marca em vez do comparador.

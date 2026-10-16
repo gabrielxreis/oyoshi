@@ -68,6 +68,25 @@ def binarizar(im):
     return ~claro if borda > lim else claro
 
 
+def faixa_principal(m):
+    """Fica só a faixa de linhas de tinta principal (+ acentos/descendentes a até 15% da altura): pedaços da linha
+    vizinha no recorte mudavam a proporção (12,6 -> 8,6) e faziam a fonte condensada vencer."""
+    linhas = m.any(1); runs, ini = [], None
+    for y, v in enumerate(list(linhas) + [False]):
+        if v and ini is None: ini = y
+        elif not v and ini is not None: runs.append((ini, y)); ini = None
+    if len(runs) <= 1:
+        return m
+    peso = [m[a:b].sum() for a, b in runs]; i0 = int(np.argmax(peso)); a0, b0 = runs[i0]; h0 = b0 - a0; ok = [runs[i0]]
+    for j, (a, b) in enumerate(runs):
+        if j == i0: continue
+        gap = a - b0 if a >= b0 else a0 - b
+        if gap <= max(2, h0 * 0.15) and (b - a) < h0 * 0.45: ok.append((a, b))
+    out = np.zeros_like(m)
+    for a, b in ok: out[a:b] = m[a:b]
+    return out
+
+
 def apertar(m):
     ys, xs = np.where(m)
     if len(xs) == 0:
@@ -110,7 +129,7 @@ def render(caminho, idx, texto, alt=120, ar=None):
         ImageDraw.Draw(im).text((10 - bx[0], 10 - bx[1]), texto, font=fnt, fill=255)
     except Exception:
         return None
-    return apertar(np.asarray(im) > 128)
+    return apertar(faixa_principal(np.asarray(im) > 128))   # mesma régua da referência
 
 
 def nota(ref, cand, H=96):
@@ -155,9 +174,9 @@ def main():
         for c in a.cor.split(","):  # várias cores: "#FFFFFF,#3ED6A6" (linha com palavra destacada)
             c = c.strip(); alvo = np.array([int(c[i:i + 2], 16) for i in (1, 3, 5)], dtype=np.float32)
             m |= np.sqrt(((px - alvo) ** 2).sum(axis=2)) < a.tol
-        ref = apertar(m)
+        ref = apertar(faixa_principal(m))
     else:
-        ref = apertar(binarizar(crop))
+        ref = apertar(faixa_principal(binarizar(crop)))
     fontes = indice()
     termos = [t.strip().lower() for t in a.filtro.split(",") if t.strip()]
     res = []
