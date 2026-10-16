@@ -6,3 +6,4 @@ __pycache__/
 # (têm dados da máquina, como número de série, ou conteúdo da Adobe)
 docs/catalogo/local/
 .venv/
+scripts/swift/ocr

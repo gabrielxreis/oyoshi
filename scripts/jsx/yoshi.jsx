@@ -752,6 +752,17 @@ var Y = (function () {
       var f = new File(prefixo + "-" + (i < 9 ? "0" : "") + (i + 1) + ".png"); dup.saveAs(f, new PNGSaveOptions(), true); dup.close(SaveOptions.DONOTSAVECHANGES); out.push(f.fsName); }
     app.activeDocument = orig; D = orig; return out;
   };
+  // Apaga áreas (texto da referência) com Preenchimento Sensível ao Conteúdo numa cópia rasterizada: vira "fundo limpo".
+  // caixas: [[x1,y1,x2,y2], ...] em px do documento. Local, sem crédito generativo.
+  Y.apagarAreas = function (l, caixas, expandir) {
+    l = rasterizar(l); D.activeLayer = l; D.selection.deselect();
+    for (var i = 0; i < caixas.length; i++) { var c = caixas[i];
+      D.selection.select([[c[0], c[1]], [c[2], c[1]], [c[2], c[3]], [c[0], c[3]]], i ? SelectionType.EXTEND : SelectionType.REPLACE); }
+    D.selection.expand(UnitValue(expandir || 4, "px"));
+    var f = new ActionDescriptor(); f.putEnumerated(s("using"), s("fillContents"), s("contentAware")); f.putBoolean(s("contentAwareColorAdaptationFill"), true);
+    f.putUnitDouble(s("opacity"), s("percentUnit"), 100); f.putEnumerated(s("mode"), s("blendMode"), s("normal")); executeAction(s("fill"), f, DialogModes.NO);
+    D.selection.deselect(); return l;
+  };
   Y.D = function () { return D; };
   // Lê um JSON (alvos.json do ciclo.py, preset.json da marca). ExtendScript não tem JSON nativo confiável.
   Y.lerJSON = function (caminho) { var f = new File(caminho); f.encoding = "UTF-8"; if (!f.exists) return {}; f.open("r"); var t = f.read(); f.close(); return eval("(" + t + ")"); };

@@ -174,7 +174,8 @@ def main():
         ajust = render(f, i, a.texto, ar=ref.shape[1] / ref.shape[0])
         forma, _ = nota(ref, ajust)
         dens = peso(ref, ajust)                          # espessura do traço (Thin x Light x Regular)
-        n = (forma - 0.35) / 0.65 * 0.6 + dens * 0.25 + larg * 0.15
+        # largura natural pesa de novo (sem isso fonte condensada + tracking enorme ganhava: Radiologia em GoodPro XCond)
+        n = (forma - 0.35) / 0.65 * 0.5 + dens * 0.2 + larg ** 2 * 0.3
         if n > 0:
             res.append((n, larg, ps, f, i))
     res.sort(reverse=True)
