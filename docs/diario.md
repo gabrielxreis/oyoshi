@@ -111,3 +111,10 @@ Cada entrada: técnica, como faz no motor, o que deu errado e como ficou. Mais n
   - Negrito por erosão proporcional à altura (texto grande regular passava por negrito).
   - Voto de fonte só entre linhas em que a 1ª fonte de uma está entre as 4 da outra (Light não vota com Bold).
 - Em texto de corpo grande (> 56 px no doc), passar `--pequeno 110` para usar a fonte de texto da marca em vez do comparador.
+
+## 2026-10-16 05h (c): segundo lote, 7 de 10 bons
+- Bons sem ajuste: 13 mil, greencard, o-que-falta, jornal, tecnologia, carreira, AGM. Com defeito: quanto-ganha (título ATRÁS do celular: o reconstrutor põe o texto por cima; precisa de máscara do objeto, próximo passo), visa-bulletin (fonte fora do padrão da marca), currículo médico (caixa laranja não detectada).
+- Novo: nota baixa com o filtro da marca (< 0,6) = post fora do padrão; varre todas as fontes (Visa Bulletin é OwnersXXNarrow-XBlack, não Franklin). Largura natural < 0,93 penaliza (tracking absurdo grudava as palavras: "ASDATASMUDARAM").
+- Novo: medida muito maior que a caixa do OCR = objeto da foto da mesma cor encostado (passaporte azul-escuro sob o texto verde-escuro) -> mede na região justa do OCR.
+- Novo: glifo que a fonte da marca não tem (→) vai numa faixa com Helvetica Neue (antes virava □).
+- Erro meu: `--zonas` do visa estava errado e escondeu o título; o filtro de linha torta (passaporte a -13°) resolve sozinho.

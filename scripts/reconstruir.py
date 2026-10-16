@@ -362,6 +362,11 @@ def main():
         import ciclo as _C   # recorte JUSTO pela medida (a caixa do Vision é folgada e invade a linha vizinha)
         mj = _C.medir(a.ref, ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), list(cx), 30 if l.get("n_linhas") else 1,
                       None if l.get("n_linhas") else (l["y"] + l["h"] / 2) * k)
+        if mj and not l.get("n_linhas") and (mj["h"] > l["h"] * k * 1.15 or mj["w"] > l["w"] * k * 1.08):
+            # medida maior que a linha do OCR: pegou objeto da foto da mesma cor (passaporte) -> região justa do OCR
+            cx = (max(0, l["x"] - 3), max(0, l["y"] - 2), min(W0, l["x"] + l["w"] + 3), min(H0, l["y"] + l["h"] + 2))
+            mj = _C.medir(a.ref, ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), list(cx), 1, (l["y"] + l["h"] / 2) * k)
+            print(f"   região justa (objeto da foto encostado): {[int(v) for v in cx]}", flush=True)
         if mj:
             # vertical EXATO (sem folga): 2-3 px a mais já pegavam o topo da linha de baixo e mudavam a proporção
             cj = (max(0, int(mj["x"] / k) - 2), max(0, int(mj["y"] / k)), min(W0, int((mj["x"] + mj["w"]) / k) + 3), min(H0, int(np.ceil((mj["y"] + mj["h"]) / k))))
@@ -370,7 +375,17 @@ def main():
         for ln in out.strip().splitlines():
             ps = ln.split()
             if len(ps) >= 4 and ps[0].replace(".", "").isdigit():
-                ranking[ps[-1]] = float(ps[0]) * (0.97 if "Italic" in ps[-1] or "Oblique" in ps[-1] else 1.0)
+                lg = float(ps[2]) if len(ps) > 3 else 1.0   # largura natural: < 0,93 exige tracking absurdo (letras grudadas)
+                ranking[ps[-1]] = float(ps[0]) * (0.97 if "Italic" in ps[-1] or "Oblique" in ps[-1] else 1.0) - max(0, 0.93 - lg) * 1.5
+        if ranking and a.filtro and max(ranking.values()) < 0.6 and not pequeno:
+            # nota baixa com o filtro da marca = provavelmente outra família (post fora do padrão): varre tudo
+            out2 = roda(PY, os.path.join(AQUI, "comparar_fonte.py"), a.ref, *map(str, cj), txt, "--cor", ",".join([cor] + sorted({f["cor"] for f in fx if f.get("cor")})), "--top", "12", timeout=900)
+            r2 = {}
+            for ln in out2.strip().splitlines():
+                ps = ln.split()
+                if len(ps) >= 4 and ps[0].replace(".", "").isdigit(): r2[ps[-1]] = float(ps[0]) * (0.97 if "Italic" in ps[-1] or "Oblique" in ps[-1] else 1.0) - max(0, 0.93 - float(ps[2])) * 1.5
+            if r2 and max(r2.values()) > max(ranking.values()) + 0.08:
+                print(f"   fora da família da marca: {max(r2, key=r2.get)} ({max(r2.values()):.2f}) > {max(ranking.values()):.2f}", flush=True); ranking = r2
         if ranking:
             fonte = max(ranking, key=ranking.get); nota = ranking[fonte]
         if nota < a.nota_min:   # nenhuma fonte parecida: é logo/lettering -> fica como imagem do fundo
@@ -425,6 +440,26 @@ def main():
                 if fonte_: f["fonte"] = fonte_.strip()
                 if cor_: f["cor"] = cor_.strip()
                 c["faixas"] = [x for x in c["faixas"] if x["ate"] <= de_ or x["de"] >= ate_] + [f]; print(f"ajuste manual: {c['nome']} faixa {f}")
+    # glifo que a fonte não tem (→ ↓ ✓): faixa só no caractere com uma fonte do sistema que tem (senão vira caixa □)
+    try:
+        import comparar_fonte as _CF; IDX = _CF.indice()
+        reserva = next((f_ for f_ in ("HelveticaNeue", "ArialMT", "AppleSDGothicNeo-Regular") if f_ in IDX), None)
+        from fontTools.ttLib import TTFont, TTCollection
+        def tem(fonte_, ch_):
+            f_, i_, cob_ = IDX.get(fonte_, [None, 0, ""])
+            if ord(ch_) < 0x180: return ch_ in cob_
+            try:
+                ft = TTCollection(f_).fonts[i_] if f_.lower().endswith(".ttc") else TTFont(f_, lazy=True)
+                return ord(ch_) in (ft.getBestCmap() or {})
+            except Exception:
+                return True
+        for c in camadas:
+            if c["fonte"] not in IDX: continue
+            for i_, ch_ in enumerate(c["txt"]):
+                if ord(ch_) > 0x17F and ch_ not in "\r\n" and not tem(c["fonte"], ch_) and reserva and not any(f_["de"] <= i_ < f_["ate"] for f_ in c["faixas"]):
+                    c["faixas"].append({"de": i_, "ate": i_ + 1, "fonte": reserva}); print(f"glifo '{ch_}' sem {c['fonte']}: usa {reserva}")
+    except Exception as e_:
+        print("aviso glifos:", e_)
     # coerência de família: linha vizinha de outra família parecida (peso diferente) puxa para a família do bloco
     fam = lambda f_: f_.split("-")[0]
     for i, c in enumerate(camadas):
