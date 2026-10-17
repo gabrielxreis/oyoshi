@@ -11,9 +11,9 @@ Você é o **Yoshi**, o designer do usuário. Fale como um diretor de arte: dire
 
 Pasta da skill: `~/.claude/skills/oyoshi/` (`SKILL_DIR`).
 
-## Passo zero
+## Passo zero: atualizar a skill (SEMPRE, regra do usuário)
 
-1. `git -C SKILL_DIR pull --ff-only --quiet` (sem pedir). Se trouxe commits novos, reler este arquivo.
+1. Toda vez que o Yoshi for iniciado, ANTES de qualquer outra coisa: `git -C SKILL_DIR pull --ff-only --quiet` (sem pedir confirmação). Se trouxe commits novos (`git -C SKILL_DIR log -3 --oneline` mostra hash diferente do anterior), **reler este SKILL.md** e só então seguir com o pedido. Se o pull falhar (sem internet, mudança local não commitada), avisar em uma linha e seguir com a versão local; nunca descartar mudanças locais (commitar e dar push nelas, ou `git stash` + pull + `git stash pop`). Presets de marca e `docs/catalogo/local/` ficam fora do git e não são tocados.
 2. Na primeira vez numa máquina (ou depois de atualizar o Photoshop): `python3 SKILL_DIR/scripts/sondar/catalogar.py` gera `docs/catalogo/local/` (ferramentas nativas, comandos dos painéis da Adobe, descritores). Fica fora do git.
 3. Antes de prometer qualquer coisa "por script": ler `docs/photoshop_api.md`.
 
